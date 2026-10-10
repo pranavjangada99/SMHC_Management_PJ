@@ -1,0 +1,6 @@
+{
+  "name": "HomoeoCare Clinic Management",
+  "description": "Comprehensive clinic management system for homoeopathic practice featuring patient EMR, consultation notes, digital prescription printing, appointment queue, medicine inventory, INR billing, and cloud backups.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,175 @@
+{
+  "entities": {
+    "Patient": {
+      "title": "Patient",
+      "description": "Registered clinic patient profile and clinical history summary",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string", "description": "Unique clinic patient ID e.g. HC-2026-0001", "maxLength": 32 },
+        "name": { "type": "string", "description": "Full name of the patient", "maxLength": 100 },
+        "gender": { "type": "string", "enum": ["male", "female", "other"], "description": "Gender" },
+        "age": { "type": "number", "description": "Age in years" },
+        "dob": { "type": "string", "description": "Date of birth (YYYY-MM-DD)", "maxLength": 20 },
+        "phone": { "type": "string", "description": "Contact phone number", "maxLength": 20 },
+        "email": { "type": "string", "description": "Email address", "maxLength": 100 },
+        "address": { "type": "string", "description": "Residential address", "maxLength": 200 },
+        "bloodGroup": { "type": "string", "description": "Blood group", "maxLength": 10 },
+        "constitutionalType": { "type": "string", "description": "Homoeopathic constitutional remedy affinity", "maxLength": 100 },
+        "allergies": { "type": "string", "description": "Known allergies and hypersensitivities", "maxLength": 200 },
+        "totalVisits": { "type": "number", "description": "Total visits count" },
+        "lastVisitDate": { "type": "string", "description": "Last visit date (ISO)", "maxLength": 30 },
+        "createdAt": { "type": "string", "description": "Creation timestamp", "maxLength": 30 },
+        "updatedAt": { "type": "string", "description": "Last updated timestamp", "maxLength": 30 }
+      },
+      "required": ["patientId", "name", "gender", "phone"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Clinic appointment token and status tracking",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string", "description": "Reference to patient ID", "maxLength": 64 },
+        "patientName": { "type": "string", "description": "Patient display name", "maxLength": 100 },
+        "patientPhone": { "type": "string", "description": "Patient phone", "maxLength": 20 },
+        "date": { "type": "string", "description": "Appointment date YYYY-MM-DD", "maxLength": 20 },
+        "timeSlot": { "type": "string", "description": "Time slot string", "maxLength": 30 },
+        "tokenNumber": { "type": "number", "description": "Daily queue token number" },
+        "status": { "type": "string", "enum": ["scheduled", "waiting", "in-consultation", "completed", "cancelled", "no-show"], "description": "Visit status" },
+        "type": { "type": "string", "enum": ["new", "follow-up", "emergency"], "description": "Appointment category" },
+        "chiefComplaint": { "type": "string", "description": "Reported chief complaint", "maxLength": 300 },
+        "assignedDoctor": { "type": "string", "description": "Assigned doctor name", "maxLength": 100 },
+        "createdAt": { "type": "string", "description": "Creation timestamp", "maxLength": 30 }
+      },
+      "required": ["patientId", "patientName", "date", "tokenNumber", "status"]
+    },
+    "Consultation": {
+      "title": "Consultation",
+      "description": "Homoeopathic clinical case taking and medical examination notes",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string", "description": "Reference to patient ID", "maxLength": 64 },
+        "appointmentId": { "type": "string", "description": "Reference to appointment ID", "maxLength": 64 },
+        "date": { "type": "string", "description": "Date of consultation", "maxLength": 30 },
+        "doctorName": { "type": "string", "description": "Doctor name", "maxLength": 100 },
+        "vitals": { "type": "object", "description": "Vitals BP, Pulse, Temp, SpO2, Weight" },
+        "chiefComplaints": { "type": "array", "description": "List of complaints with duration and sensation" },
+        "modalities": { "type": "object", "description": "Aggravation and amelioration conditions" },
+        "mindGenerals": { "type": "object", "description": "Mental state, temperament, thermal reaction, sleep, appetite" },
+        "physicalObservations": { "type": "string", "description": "Clinical examination notes", "maxLength": 2000 },
+        "miasm": { "type": "string", "enum": ["psora", "sycosis", "syphilis", "tubercular", "mixed"], "description": "Miasmatic assessment" },
+        "diagnosis": { "type": "string", "description": "Clinical and homoeopathic diagnosis", "maxLength": 300 },
+        "followUpAdvice": { "type": "string", "description": "Doctor instructions and follow-up guidance", "maxLength": 1000 },
+        "nextVisitDate": { "type": "string", "description": "Recommended next visit date", "maxLength": 30 },
+        "createdAt": { "type": "string", "description": "Record creation timestamp", "maxLength": 30 }
+      },
+      "required": ["patientId", "date", "doctorName"]
+    },
+    "Prescription": {
+      "title": "Prescription",
+      "description": "Digital prescription linked to consultation and printable letterhead",
+      "type": "object",
+      "properties": {
+        "consultationId": { "type": "string", "description": "Reference to consultation ID", "maxLength": 64 },
+        "patientId": { "type": "string", "description": "Reference to patient ID", "maxLength": 64 },
+        "patientName": { "type": "string", "description": "Patient display name", "maxLength": 100 },
+        "date": { "type": "string", "description": "Prescription date", "maxLength": 30 },
+        "remedies": { "type": "array", "description": "List of prescribed homoeopathic remedies and dosages" },
+        "generalAdvice": { "type": "string", "description": "Dietary restrictions and dosage instructions", "maxLength": 500 },
+        "doctorSignature": { "type": "string", "description": "Doctor name or signature marker", "maxLength": 100 },
+        "createdAt": { "type": "string", "description": "Creation timestamp", "maxLength": 30 }
+      },
+      "required": ["patientId", "patientName", "date", "remedies"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Homoeopathic medicine or clinical dispensary product stock record",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Remedy name e.g. Arnica Montana", "maxLength": 100 },
+        "category": { "type": "string", "enum": ["dilution", "mother-tincture", "biochemic", "trituration", "globules", "bottle"], "description": "Item category" },
+        "potency": { "type": "string", "description": "Potency e.g. 30C, 200C, 1M, Q", "maxLength": 30 },
+        "unit": { "type": "string", "description": "Measurement unit e.g. ml, phials, tablets", "maxLength": 30 },
+        "currentStock": { "type": "number", "description": "Available stock quantity" },
+        "minReorderLevel": { "type": "number", "description": "Threshold for low stock warnings" },
+        "unitPriceINR": { "type": "number", "description": "Price per unit in INR" },
+        "batchNumber": { "type": "string", "description": "Manufacturer batch identifier", "maxLength": 50 },
+        "expiryDate": { "type": "string", "description": "Expiry date YYYY-MM", "maxLength": 30 },
+        "supplier": { "type": "string", "description": "Supplier or pharmacy brand", "maxLength": 100 },
+        "updatedAt": { "type": "string", "description": "Last updated timestamp", "maxLength": 30 }
+      },
+      "required": ["name", "category", "unit", "currentStock", "unitPriceINR"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Patient billing invoice and payment receipt ledger",
+      "type": "object",
+      "properties": {
+        "invoiceNumber": { "type": "string", "description": "Invoice number e.g. INV-2026-0001", "maxLength": 32 },
+        "patientId": { "type": "string", "description": "Reference to patient ID", "maxLength": 64 },
+        "patientName": { "type": "string", "description": "Patient display name", "maxLength": 100 },
+        "appointmentId": { "type": "string", "description": "Linked appointment ID", "maxLength": 64 },
+        "date": { "type": "string", "description": "Invoice date", "maxLength": 30 },
+        "items": { "type": "array", "description": "Itemized bill line items" },
+        "subtotalINR": { "type": "number", "description": "Subtotal in INR" },
+        "discountINR": { "type": "number", "description": "Discount in INR" },
+        "taxINR": { "type": "number", "description": "Tax in INR" },
+        "grandTotalINR": { "type": "number", "description": "Total payable in INR" },
+        "paidINR": { "type": "number", "description": "Amount paid in INR" },
+        "paymentStatus": { "type": "string", "enum": ["paid", "partial", "pending"], "description": "Payment status" },
+        "paymentMethod": { "type": "string", "enum": ["cash", "upi", "card", "bank-transfer"], "description": "Payment mode" },
+        "receiptNumber": { "type": "string", "description": "Receipt number", "maxLength": 50 },
+        "createdAt": { "type": "string", "description": "Creation timestamp", "maxLength": 30 }
+      },
+      "required": ["invoiceNumber", "patientId", "patientName", "date", "grandTotalINR", "paymentStatus"]
+    },
+    "ClinicSetting": {
+      "title": "ClinicSetting",
+      "description": "Global clinic configuration, doctor credentials, and staff PINs",
+      "type": "object",
+      "properties": {
+        "clinicName": { "type": "string", "description": "Official clinic name", "maxLength": 150 },
+        "tagline": { "type": "string", "description": "Clinic motto or specialty tagline", "maxLength": 200 },
+        "doctorName": { "type": "string", "description": "Doctor's name with qualification titles", "maxLength": 120 },
+        "registrationNumber": { "type": "string", "description": "State/National Medical Council registration number", "maxLength": 50 },
+        "phone": { "type": "string", "description": "Clinic telephone/mobile", "maxLength": 30 },
+        "email": { "type": "string", "description": "Clinic official email", "maxLength": 100 },
+        "address": { "type": "string", "description": "Clinic physical address", "maxLength": 250 },
+        "consultationFeeINR": { "type": "number", "description": "Default new consultation fee in INR" },
+        "followupFeeINR": { "type": "number", "description": "Follow-up consultation fee in INR" },
+        "staffPins": { "type": "object", "description": "Configured PINs for Admin, Doctor, Receptionist" },
+        "updatedAt": { "type": "string", "description": "Last update timestamp", "maxLength": 30 }
+      },
+      "required": ["clinicName", "doctorName", "registrationNumber"]
+    }
+  },
+  "firestore": {
+    "/patients/{patientId}": {
+      "schema": { "$ref": "#/entities/Patient" },
+      "description": "Patient registry documents"
+    },
+    "/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/Appointment" },
+      "description": "Clinic visit scheduling and queue tokens"
+    },
+    "/consultations/{consultationId}": {
+      "schema": { "$ref": "#/entities/Consultation" },
+      "description": "Doctor clinical case records, symptoms, modalities and diagnoses"
+    },
+    "/prescriptions/{prescriptionId}": {
+      "schema": { "$ref": "#/entities/Prescription" },
+      "description": "Digital prescriptions for medicines and dispensing"
+    },
+    "/inventory/{itemId}": {
+      "schema": { "$ref": "#/entities/InventoryItem" },
+      "description": "Dispensary remedies, potencies and supply stocks"
+    },
+    "/invoices/{invoiceId}": {
+      "schema": { "$ref": "#/entities/Invoice" },
+      "description": "Billing invoices, receipts and revenue records"
+    },
+    "/clinic_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/ClinicSetting" },
+      "description": "Clinic identity, consultation charges and staff PIN settings"
+    }
+  }
+}

@@ -1,0 +1,68 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Default safety deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Patients Collection
+    match /patients/{patientId} {
+      allow read: if true;
+      allow create, update: if isValidId(patientId);
+      allow delete: if false;
+    }
+
+    // Appointments Collection
+    match /appointments/{appointmentId} {
+      allow read: if true;
+      allow create, update: if isValidId(appointmentId);
+      allow delete: if isValidId(appointmentId);
+    }
+
+    // Consultations Collection
+    match /consultations/{consultationId} {
+      allow read: if true;
+      allow create, update: if isValidId(consultationId);
+      allow delete: if false;
+    }
+
+    // Prescriptions Collection
+    match /prescriptions/{prescriptionId} {
+      allow read: if true;
+      allow create, update: if isValidId(prescriptionId);
+      allow delete: if false;
+    }
+
+    // Inventory Collection
+    match /inventory/{itemId} {
+      allow read: if true;
+      allow create, update: if isValidId(itemId);
+      allow delete: if isValidId(itemId);
+    }
+
+    // Invoices Collection
+    match /invoices/{invoiceId} {
+      allow read: if true;
+      allow create, update: if isValidId(invoiceId);
+      allow delete: if false;
+    }
+
+    // Clinic Settings Collection
+    match /clinic_settings/{settingId} {
+      allow read: if true;
+      allow create, update: if isValidId(settingId);
+      allow delete: if false;
+    }
+  }
+}
