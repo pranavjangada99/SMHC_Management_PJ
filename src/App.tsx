@@ -3,10 +3,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ClinicProvider, useClinic } from './context/ClinicContext';
 import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
+import { CommandPalette } from './components/layout/CommandPalette';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { AppointmentQueueView } from './components/queue/AppointmentQueueView';
 import { PatientListView } from './components/patients/PatientListView';
@@ -39,10 +40,27 @@ const AppContent: React.FC = () => {
   // Mobile drawer state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Command palette state
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+
   // Global action modal states
   const [isNewPatientModalOpen, setIsNewPatientModalOpen] = useState(false);
+  const [newPatientInitialName, setNewPatientInitialName] = useState<string | undefined>();
   const [isBookAppointmentModalOpen, setIsBookAppointmentModalOpen] = useState(false);
   const [preSelectedPatientIdForApt, setPreSelectedPatientIdForApt] = useState<string | undefined>();
+
+  // Global Keyboard Shortcut: Cmd/Ctrl + K opens Command Palette
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleOpenBookAppointmentModal = (patientId?: string) => {
     setPreSelectedPatientIdForApt(patientId);
@@ -55,7 +73,8 @@ const AppContent: React.FC = () => {
       {/* Top Application Header */}
       <Header 
         onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
-        isMobileMenuOpen={isMobileMenuOpen} 
+        isMobileMenuOpen={isMobileMenuOpen}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
       />
 
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
@@ -63,7 +82,8 @@ const AppContent: React.FC = () => {
         {/* Navigation Sidebar */}
         <Sidebar 
           isMobileOpen={isMobileMenuOpen} 
-          onCloseMobile={() => setIsMobileMenuOpen(false)} 
+          onCloseMobile={() => setIsMobileMenuOpen(false)}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         />
 
         {/* Main Clinical Content Area */}
@@ -183,9 +203,26 @@ const AppContent: React.FC = () => {
       <PrescriptionPrintModal />
       <InvoiceReceiptPrintModal />
       
+      {/* Global Keyboard Shortcut (Cmd/Ctrl + K) Command Palette */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onOpenNewPatientModal={(initialName) => {
+          setNewPatientInitialName(initialName);
+          setIsNewPatientModalOpen(true);
+        }}
+        onOpenBookAppointmentModal={(patientId) => {
+          handleOpenBookAppointmentModal(patientId);
+        }}
+      />
+
       <NewPatientModal
         isOpen={isNewPatientModalOpen}
-        onClose={() => setIsNewPatientModalOpen(false)}
+        onClose={() => {
+          setIsNewPatientModalOpen(false);
+          setNewPatientInitialName(undefined);
+        }}
+        initialName={newPatientInitialName}
       />
 
       <BookAppointmentModal

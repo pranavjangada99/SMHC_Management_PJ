@@ -13,15 +13,21 @@ import {
   Stethoscope,
   Receipt,
   Menu,
-  X
+  X,
+  Search
 } from 'lucide-react';
 
 interface HeaderProps {
   onToggleMobileMenu?: () => void;
   isMobileMenuOpen?: boolean;
+  onOpenCommandPalette?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, isMobileMenuOpen }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+  onToggleMobileMenu, 
+  isMobileMenuOpen,
+  onOpenCommandPalette 
+}) => {
   const { 
     role, 
     currentStaff, 
@@ -66,43 +72,79 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, isMobileMenu
 
   return (
     <header className="no-print bg-white/95 backdrop-blur-md border-b border-stone-200/80 sticky top-0 z-30 shadow-2xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
           
-          {/* Left Zone: Brand and Doctor Credentials */}
-          <div className="flex items-center gap-3">
+          {/* Left Zone: Clinic & Doctor Identity */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 sm:flex-initial">
             <button
               type="button"
               onClick={onToggleMobileMenu}
-              className="lg:hidden p-2 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-100 focus:outline-hidden"
+              className="lg:hidden p-1.5 sm:p-2 -ml-1 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-100 focus:outline-hidden transition-colors shrink-0"
               aria-label="Toggle Navigation"
             >
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-xl bg-teal-100/90 text-teal-800 border border-teal-200/80 flex items-center justify-center font-bold text-base shadow-xs shrink-0 tracking-tight">
-                <span>HC</span>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base font-bold text-slate-800 tracking-tight leading-tight">
-                    {settings.clinicName}
-                  </h1>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <span className="font-semibold text-slate-700">{settings.doctorName}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{settings.qualification}</span>
-                  <span aria-hidden="true" className="hidden sm:inline">·</span>
-                  <span className="hidden sm:inline font-mono text-[11px] text-slate-400">Reg: {settings.registrationNumber}</span>
-                </div>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-teal-50 text-teal-700 border border-teal-200/80 flex items-center justify-center shrink-0 shadow-2xs">
+              <Building2 className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
+            </div>
+
+            <div className="min-w-0 flex flex-col justify-center">
+              <h1 className="text-xs sm:text-sm md:text-base font-bold text-slate-800 tracking-tight leading-tight truncate">
+                {settings.clinicName}
+              </h1>
+              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 leading-tight truncate mt-0.5">
+                <span className="font-semibold text-slate-700 truncate">{settings.doctorName}</span>
+                {settings.qualification && (
+                  <span className="hidden sm:inline text-slate-400 truncate">
+                    <span aria-hidden="true" className="mr-1 text-slate-300">·</span>
+                    {settings.qualification}
+                  </span>
+                )}
+                {settings.registrationNumber && (
+                  <span className="hidden md:inline font-mono text-[10px] text-slate-400 truncate">
+                    <span aria-hidden="true" className="mr-1 text-slate-300">·</span>
+                    Reg: {settings.registrationNumber}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Right Zone: Sync Status, Staff Badge & PIN Lock */}
-          <div className="flex items-center gap-2.5 sm:gap-4">
+          {/* Center Zone: Search Command Palette Trigger */}
+          <div className="flex-1 max-w-md mx-3 hidden md:block">
+            <button
+              type="button"
+              onClick={onOpenCommandPalette}
+              className="w-full flex items-center justify-between gap-2.5 px-3.5 py-1.5 text-xs text-slate-500 bg-slate-100/90 hover:bg-slate-200/80 border border-slate-200/90 rounded-xl transition-all cursor-pointer shadow-2xs group"
+              title="Search patients, consultations, and actions (⌘K or Ctrl+K)"
+            >
+              <div className="flex items-center gap-2 truncate">
+                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+                <span className="font-medium text-slate-600 truncate">Quick Search (Patients, Consultations)...</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <kbd className="font-mono text-[10px] font-semibold bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs text-slate-500 group-hover:border-indigo-300 group-hover:text-indigo-600 transition-colors">
+                  ⌘K
+                </kbd>
+              </div>
+            </button>
+          </div>
+
+          {/* Right Zone: Mobile Search, Sync Status, Staff Badge & PIN Lock */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            
+            {/* Mobile Search Button */}
+            <button
+              type="button"
+              onClick={onOpenCommandPalette}
+              className="md:hidden p-1.5 sm:p-2 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              title="Quick Search (⌘K / Ctrl+K)"
+              aria-label="Search patients and consultations"
+            >
+              <Search className="w-4 h-4" />
+            </button>
             
             {/* Sync Status Button */}
             <button
@@ -127,7 +169,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, isMobileMenu
             <div className="relative">
               <button
                 onClick={() => setRoleMenuOpen(!roleMenuOpen)}
-                className={`flex items-center gap-2 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${getRoleBadgeStyle(role)}`}
+                className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${getRoleBadgeStyle(role)}`}
               >
                 {getRoleIcon(role)}
                 <span className="capitalize">{role}</span>
@@ -197,10 +239,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu, isMobileMenu
             <button
               onClick={lockSession}
               title="Lock station with staff PIN"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
             >
               <Lock className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Lock Station</span>
+              <span className="hidden sm:inline">Lock</span>
             </button>
 
           </div>

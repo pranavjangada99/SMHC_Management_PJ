@@ -13,7 +13,7 @@ export interface StaffProfile {
 
 export interface Patient {
   id: string;
-  patientId: string; // e.g. HC-2026-0001
+  patientId: string; // e.g. SMHC-2026-0001
   name: string;
   gender: 'male' | 'female' | 'other';
   age: number;
@@ -226,6 +226,7 @@ export interface ClinicSettings {
   bankDetails?: string;
   taxRatePercent?: number;
   invoicePrefix?: string;
+  patientIdPrefix?: string;
   defaultPrescriptionAdvice?: string;
   consultationTypes: ConsultationTypeConfig[];
   customCategories: string[];

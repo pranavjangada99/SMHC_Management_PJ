@@ -60,6 +60,9 @@ export interface ClinicContextType {
   activeInvoiceToPrint: Invoice | null;
   openInvoicePrint: (invoice: Invoice) => void;
   closeInvoicePrint: () => void;
+  activeViewingPatientId: string | null;
+  openPatientDetails: (patientId: string) => void;
+  closePatientDetails: () => void;
 
   // Data Collections
   settings: ClinicSettings;
@@ -118,6 +121,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [selectedAppointmentForConsultation, setSelectedAppointmentForConsultation] = useState<Appointment | null>(null);
   const [activePrescriptionToPrint, setActivePrescriptionToPrint] = useState<Prescription | null>(null);
   const [activeInvoiceToPrint, setActiveInvoiceToPrint] = useState<Invoice | null>(null);
+  const [activeViewingPatientId, setActiveViewingPatientId] = useState<string | null>(null);
 
   // Entities State
   const [settings, setSettings] = useState<ClinicSettings>(() => localStore.getSettings());
@@ -297,11 +301,21 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     setActiveInvoiceToPrint(null);
   };
 
+  const openPatientDetails = (patientId: string) => {
+    setActiveViewingPatientId(patientId);
+    setActiveTab('patients');
+  };
+
+  const closePatientDetails = () => {
+    setActiveViewingPatientId(null);
+  };
+
   // Patient Actions
   const addPatient = (data: Partial<Patient>): Patient => {
     const nextSeq = patients.length + 1;
     const year = new Date().getFullYear();
-    const patientId = `HC-${year}-${String(nextSeq).padStart(4, '0')}`;
+    const prefix = settings.patientIdPrefix || 'SMHC-';
+    const patientId = `${prefix}${year}-${String(nextSeq).padStart(4, '0')}`;
     
     const newPatient: Patient = {
       id: `pat-${Date.now()}`,
@@ -717,6 +731,9 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         activeInvoiceToPrint,
         openInvoicePrint,
         closeInvoicePrint,
+        activeViewingPatientId,
+        openPatientDetails,
+        closePatientDetails,
         settings,
         patients,
         appointments,

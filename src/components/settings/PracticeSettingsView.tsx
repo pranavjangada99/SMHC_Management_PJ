@@ -204,15 +204,7 @@ export const PracticeSettingsView: React.FC = () => {
       <div className="bg-white rounded-2xl border border-stone-200/80 p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-stone-700 bg-stone-100 px-2.5 py-1 rounded-md">
-                100% Dynamic Configuration
-              </span>
-              <span className="text-xs text-stone-400 font-mono">
-                No hardcoded values
-              </span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight mt-1">
+            <h2 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
               Practice Settings & Customization
             </h2>
             <p className="text-xs text-stone-500 mt-0.5">

@@ -51,6 +51,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   upiId: 'homoeocare@icici',
   upiPayeeName: 'HomoeoCare Health Centre',
   invoicePrefix: 'INV-2026-',
+  patientIdPrefix: 'SMHC-',
   gstNumber: '27AABCH1234F1Z8',
   defaultPrescriptionAdvice: 'Avoid raw onions, garlic, camphor, menthol, and strong coffee within 30 minutes before and after taking medicines. Keep phials away from direct sunlight, pungent spices, and electronic magnetic devices.',
 
@@ -110,7 +111,7 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
 export const INITIAL_PATIENTS: Patient[] = [
   {
     id: 'pat-1',
-    patientId: 'HC-2026-0001',
+    patientId: 'SMHC-2026-0001',
     name: 'Aarav Sharma',
     gender: 'male',
     age: 34,
@@ -129,7 +130,7 @@ export const INITIAL_PATIENTS: Patient[] = [
   },
   {
     id: 'pat-2',
-    patientId: 'HC-2026-0002',
+    patientId: 'SMHC-2026-0002',
     name: 'Priyanka Desai',
     gender: 'female',
     age: 28,
@@ -148,7 +149,7 @@ export const INITIAL_PATIENTS: Patient[] = [
   },
   {
     id: 'pat-3',
-    patientId: 'HC-2026-0003',
+    patientId: 'SMHC-2026-0003',
     name: 'Rameshwar Patil',
     gender: 'male',
     age: 58,
@@ -166,7 +167,7 @@ export const INITIAL_PATIENTS: Patient[] = [
   },
   {
     id: 'pat-4',
-    patientId: 'HC-2026-0004',
+    patientId: 'SMHC-2026-0004',
     name: 'Meera Iyer',
     gender: 'female',
     age: 12,
@@ -184,7 +185,7 @@ export const INITIAL_PATIENTS: Patient[] = [
   },
   {
     id: 'pat-5',
-    patientId: 'HC-2026-0005',
+    patientId: 'SMHC-2026-0005',
     name: 'Vikramaditya Rao',
     gender: 'male',
     age: 45,
@@ -741,7 +742,11 @@ export const localStore = {
   },
   getPatients(): Patient[] {
     const data = localStorage.getItem(STORAGE_KEYS.PATIENTS);
-    return data ? JSON.parse(data) : INITIAL_PATIENTS;
+    const list: Patient[] = data ? JSON.parse(data) : INITIAL_PATIENTS;
+    return list.map(p => ({
+      ...p,
+      patientId: p.patientId && p.patientId.startsWith('HC-') ? p.patientId.replace(/^HC-/, 'SMHC-') : p.patientId
+    }));
   },
   savePatients(patients: Patient[]) {
     localStorage.setItem(STORAGE_KEYS.PATIENTS, JSON.stringify(patients));

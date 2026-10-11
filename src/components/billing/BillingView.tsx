@@ -39,9 +39,11 @@ export const BillingView: React.FC = () => {
     settings, 
     createInvoice, 
     recordPayment, 
-    openInvoicePrint 
+    openInvoicePrint,
+    role
   } = useClinic();
 
+  const isReceptionist = role === 'receptionist';
   const currency = settings.currencySymbol || '₹';
 
   // Search & Filter state
@@ -100,21 +102,24 @@ export const BillingView: React.FC = () => {
   thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 30);
   const thirtyDaysAgoStr = thirtyDaysAgoDate.toISOString().split('T')[0];
 
+  // Effective date range filter (Receptionist is strictly restricted to current day)
+  const activeDateFilter = isReceptionist ? 'today' : dateRangeFilter;
+
   // Invoices filtered by date
   const dateFilteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
-      if (dateRangeFilter === 'today') return inv.date === todayStr;
-      if (dateRangeFilter === 'yesterday') return inv.date === yesterdayStr;
-      if (dateRangeFilter === 'week') return inv.date >= sevenDaysAgoStr;
-      if (dateRangeFilter === 'month') return inv.date >= thirtyDaysAgoStr;
-      if (dateRangeFilter === 'custom') {
+      if (activeDateFilter === 'today') return inv.date === todayStr;
+      if (activeDateFilter === 'yesterday') return inv.date === yesterdayStr;
+      if (activeDateFilter === 'week') return inv.date >= sevenDaysAgoStr;
+      if (activeDateFilter === 'month') return inv.date >= thirtyDaysAgoStr;
+      if (activeDateFilter === 'custom') {
         if (customStartDate && inv.date < customStartDate) return false;
         if (customEndDate && inv.date > customEndDate) return false;
         return true;
       }
       return true;
     });
-  }, [invoices, dateRangeFilter, todayStr, yesterdayStr, sevenDaysAgoStr, thirtyDaysAgoStr, customStartDate, customEndDate]);
+  }, [invoices, activeDateFilter, todayStr, yesterdayStr, sevenDaysAgoStr, thirtyDaysAgoStr, customStartDate, customEndDate]);
 
   // Final table list with all filters applied
   const filteredInvoices = useMemo(() => {
@@ -254,7 +259,8 @@ export const BillingView: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Clinic_Billing_Report_${dateRangeFilter}_${todayStr}.csv`);
+    const fileTag = isReceptionist ? 'Today' : dateRangeFilter;
+    link.setAttribute('download', `Clinic_Billing_Report_${fileTag}_${todayStr}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -363,13 +369,23 @@ export const BillingView: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-stone-900 tracking-tight">Billing & Revenue Intelligence</h2>
-              <span className="text-xs font-mono font-medium text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
-                Ledger ({currency})
-              </span>
+              <h2 className="text-xl font-bold text-stone-900 tracking-tight">
+                {isReceptionist ? "Today's Billing & Counter Collections" : "Billing & Revenue Intelligence"}
+              </h2>
+              {isReceptionist ? (
+                <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 rounded-md flex items-center gap-1">
+                  Receptionist · Current Day Only
+                </span>
+              ) : (
+                <span className="text-xs font-mono font-medium text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
+                  Complete Ledger ({currency})
+                </span>
+              )}
             </div>
             <p className="text-xs text-stone-500 mt-0.5">
-              Complete payment reports, tender breakdown, cosmetic sales tracking, and tax receipts.
+              {isReceptionist
+                ? "Current day register, invoice generation, patient receipts, and day-end closing. Complete historical & multi-month revenue reports are restricted to Doctor & Admin."
+                : "Complete payment reports, tender breakdown, cosmetic sales tracking, and tax receipts."}
             </p>
           </div>
 
@@ -386,10 +402,10 @@ export const BillingView: React.FC = () => {
             <button
               onClick={handleExportCSV}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-stone-700 bg-stone-100 hover:bg-stone-200 rounded-xl transition-all cursor-pointer"
-              title="Download payment ledger as spreadsheet CSV"
+              title={isReceptionist ? "Download today's payment ledger as CSV" : "Download payment ledger as spreadsheet CSV"}
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
+              <span>{isReceptionist ? "Export Today's CSV" : "Export CSV"}</span>
             </button>
 
             <button
@@ -403,48 +419,82 @@ export const BillingView: React.FC = () => {
         </div>
 
         {/* Date Filter Segmented Controls */}
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-stone-100">
-          <div className="flex flex-wrap items-center gap-1 bg-stone-100 p-1 rounded-xl">
-            {(['today', 'yesterday', 'week', 'month', 'all', 'custom'] as const).map(range => (
-              <button
-                key={range}
-                onClick={() => setDateRangeFilter(range)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg capitalize transition-colors cursor-pointer ${
-                  dateRangeFilter === range
-                    ? 'bg-white text-stone-900 shadow-xs font-semibold'
-                    : 'text-stone-600 hover:text-stone-900'
-                }`}
-              >
-                {range === 'all' ? 'All Time' : range === 'week' ? 'Last 7 Days' : range === 'month' ? 'Last 30 Days' : range}
-              </button>
-            ))}
-          </div>
-
-          {/* Custom Date Range Picker */}
-          {dateRangeFilter === 'custom' && (
-            <div className="flex items-center gap-2 bg-stone-50 p-1.5 rounded-xl border border-stone-200 text-xs">
-              <span className="text-[11px] text-stone-500 font-medium">From:</span>
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={e => setCustomStartDate(e.target.value)}
-                className="text-xs px-2 py-0.5 rounded bg-white border border-stone-200 font-mono"
-              />
-              <span className="text-[11px] text-stone-500 font-medium">To:</span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={e => setCustomEndDate(e.target.value)}
-                className="text-xs px-2 py-0.5 rounded bg-white border border-stone-200 font-mono"
-              />
+        {isReceptionist ? (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-stone-100">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-xs font-semibold text-blue-900">
+                <Calendar className="w-3.5 h-3.5 text-blue-700" />
+                Current Day Only ({todayStr})
+              </span>
+              <span className="text-[11px] text-stone-500 hidden sm:inline">
+                🔒 Historical reports (yesterday, weekly, monthly, lifetime) restricted to Doctor & Admin
+              </span>
             </div>
-          )}
+            <span className="text-xs text-stone-400 font-mono">
+              Showing {filteredInvoices.length} transactions today
+            </span>
+          </div>
+        ) : (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-stone-100">
+            <div className="flex flex-wrap items-center gap-1 bg-stone-100 p-1 rounded-xl">
+              {(['today', 'yesterday', 'week', 'month', 'all', 'custom'] as const).map(range => (
+                <button
+                  key={range}
+                  onClick={() => setDateRangeFilter(range)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg capitalize transition-colors cursor-pointer ${
+                    dateRangeFilter === range
+                      ? 'bg-white text-stone-900 shadow-xs font-semibold'
+                      : 'text-stone-600 hover:text-stone-900'
+                  }`}
+                >
+                  {range === 'all' ? 'All Time' : range === 'week' ? 'Last 7 Days' : range === 'month' ? 'Last 30 Days' : range}
+                </button>
+              ))}
+            </div>
 
-          <span className="text-xs text-stone-400 font-mono">
-            Showing {filteredInvoices.length} transactions
-          </span>
-        </div>
+            {/* Custom Date Range Picker */}
+            {dateRangeFilter === 'custom' && (
+              <div className="flex items-center gap-2 bg-stone-50 p-1.5 rounded-xl border border-stone-200 text-xs">
+                <span className="text-[11px] text-stone-500 font-medium">From:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={e => setCustomStartDate(e.target.value)}
+                  className="text-xs px-2 py-0.5 rounded bg-white border border-stone-200 font-mono"
+                />
+                <span className="text-[11px] text-stone-500 font-medium">To:</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={e => setCustomEndDate(e.target.value)}
+                  className="text-xs px-2 py-0.5 rounded bg-white border border-stone-200 font-mono"
+                />
+              </div>
+            )}
+
+            <span className="text-xs text-stone-400 font-mono">
+              Showing {filteredInvoices.length} transactions
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* Receptionist Access Policy Notice */}
+      {isReceptionist && (
+        <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3 px-4 flex items-center justify-between text-xs text-amber-900">
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 font-bold shrink-0">
+              🔒
+            </div>
+            <div>
+              <span className="font-semibold text-amber-950">Receptionist Permission Policy:</span>
+              <span className="text-amber-800 ml-1">
+                You have active access to current day ({todayStr}) billing, payments, and day-end closing. Complete historical & lifetime revenue reports require Doctor or Admin authorization.
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Complete Financial Overview Dashboard (Requirement #4) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -452,7 +502,9 @@ export const BillingView: React.FC = () => {
         {/* Metric 1: Realized Collections */}
         <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-stone-500">Realized Collections</span>
+            <span className="text-xs font-medium text-stone-500">
+              {isReceptionist ? "Today's Collections" : "Realized Collections"}
+            </span>
             <div className="w-8 h-8 rounded-lg bg-stone-100 text-stone-700 flex items-center justify-center font-bold font-mono">
               {currency}
             </div>
@@ -471,7 +523,9 @@ export const BillingView: React.FC = () => {
         {/* Metric 2: Gross Invoiced Total */}
         <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-stone-500">Gross Invoiced Total</span>
+            <span className="text-xs font-medium text-stone-500">
+              {isReceptionist ? "Today's Invoiced Total" : "Gross Invoiced Total"}
+            </span>
             <div className="w-8 h-8 rounded-lg bg-stone-100 text-stone-700 flex items-center justify-center">
               <Receipt className="w-4 h-4" />
             </div>
@@ -490,7 +544,9 @@ export const BillingView: React.FC = () => {
         {/* Metric 3: Pending Receivables */}
         <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-stone-500">Pending Receivables</span>
+            <span className="text-xs font-medium text-stone-500">
+              {isReceptionist ? "Today's Pending Due" : "Pending Receivables"}
+            </span>
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
               financialSummary.totalPending > 0 ? 'bg-amber-50 text-amber-700 border-amber-200/60' : 'bg-stone-100 text-stone-500 border-stone-200/60'
             }`}>
@@ -508,10 +564,12 @@ export const BillingView: React.FC = () => {
           </p>
         </div>
 
-        {/* Metric 4: Cosmetic & Skincare Sales Ratio (Requirement #3) */}
+        {/* Metric 4: Cosmetic & Skincare Sales Ratio */}
         <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-stone-500">Cosmetics & Skincare</span>
+            <span className="text-xs font-medium text-stone-500">
+              {isReceptionist ? "Today's Cosmetics" : "Cosmetics & Skincare"}
+            </span>
             <div className="w-8 h-8 rounded-lg bg-stone-100 text-stone-700 border border-stone-200 flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
@@ -536,8 +594,12 @@ export const BillingView: React.FC = () => {
         <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">Payment Mode Tender</h3>
-              <p className="text-[11px] text-stone-500 mt-0.5">Revenue collected by tender</p>
+              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
+                {isReceptionist ? "Today's Tender Mode" : "Payment Mode Tender"}
+              </h3>
+              <p className="text-[11px] text-stone-500 mt-0.5">
+                {isReceptionist ? "Today's collection by tender" : "Revenue collected by tender"}
+              </p>
             </div>
             <span className="text-xs font-mono font-bold text-stone-800">
               {currency}{financialSummary.totalCollected.toLocaleString('en-IN')}
@@ -608,8 +670,12 @@ export const BillingView: React.FC = () => {
         <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">Revenue by Category</h3>
-              <p className="text-[11px] text-stone-500 mt-0.5">Consultations vs Medicines vs Cosmetics</p>
+              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
+                {isReceptionist ? "Today's Revenue by Category" : "Revenue by Category"}
+              </h3>
+              <p className="text-[11px] text-stone-500 mt-0.5">
+                {isReceptionist ? "Consultation, medicine & cosmetic split today" : "Consultations vs Medicines vs Cosmetics"}
+              </p>
             </div>
           </div>
 
@@ -660,8 +726,12 @@ export const BillingView: React.FC = () => {
         <div className="bg-white rounded-2xl border border-stone-200/80 p-5 shadow-xs">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">Top Revenue Items</h3>
-              <p className="text-[11px] text-stone-500 mt-0.5">Best performing services & products</p>
+              <h3 className="text-xs font-bold text-stone-900 uppercase tracking-wider">
+                {isReceptionist ? "Today's Top Items" : "Top Revenue Items"}
+              </h3>
+              <p className="text-[11px] text-stone-500 mt-0.5">
+                {isReceptionist ? "Highest value items billed today" : "Best performing services & products"}
+              </p>
             </div>
             <TrendingUp className="w-4 h-4 text-stone-400" />
           </div>

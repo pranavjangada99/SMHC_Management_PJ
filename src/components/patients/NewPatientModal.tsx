@@ -14,6 +14,7 @@ import {
 interface NewPatientModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialName?: string;
 }
 
 const COMMON_CONSTITUTIONAL_REMEDIES = [
@@ -31,12 +32,18 @@ const COMMON_CONSTITUTIONAL_REMEDIES = [
   'Sepia Succus (Indifference to loved ones, bearing down sensations, chilly)'
 ];
 
-export const NewPatientModal: React.FC<NewPatientModalProps> = ({ isOpen, onClose }) => {
+export const NewPatientModal: React.FC<NewPatientModalProps> = ({ isOpen, onClose, initialName }) => {
   const { addPatient, scheduleAppointment } = useClinic();
 
-  const [name, setName] = useState('');
+  const [name, setName] = useState(initialName || '');
   const [gender, setGender] = useState<'male' | 'female' | 'other'>('male');
   const [age, setAge] = useState<number | ''>('');
+
+  React.useEffect(() => {
+    if (isOpen && initialName) {
+      setName(initialName);
+    }
+  }, [isOpen, initialName]);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');

@@ -38,7 +38,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setActiveTab, 
     startConsultation, 
     openPrescriptionPrint,
-    adjustInventory 
+    adjustInventory,
+    role
   } = useClinic();
 
   const today = new Date().toISOString().split('T')[0];
@@ -82,19 +83,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <div className="bg-white rounded-2xl border border-stone-200/80 p-5 sm:p-6 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-stone-700 bg-stone-100 px-2.5 py-1 rounded-md">
-                Active Clinic Session
-              </span>
-              <span className="text-xs text-stone-400 font-mono">
-                {new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-              </span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight mt-1">
+            <h2 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
               Welcome, {settings.doctorName}
             </h2>
             <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
-              {settings.clinicName} · {todayAppointments.length} tokens scheduled today.
+              {settings.clinicName} · {todayAppointments.length} appointments scheduled today.
             </p>
           </div>
 
@@ -451,14 +444,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <span>Follow-up Review Fee:</span>
                 <span className="font-mono font-bold text-stone-900">{currency}{settings.followupFeeINR}</span>
               </div>
-              <div className="flex justify-between py-1.5 border-b border-stone-100">
-                <span>Total Lifetime Revenue:</span>
-                <span className="font-mono font-bold text-stone-900">{currency}{totalRevenueINR.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between py-1.5">
-                <span>Pending Receivables:</span>
-                <span className="font-mono font-bold text-amber-800">{currency}{pendingReceivablesINR.toLocaleString('en-IN')}</span>
-              </div>
+              {role === 'receptionist' ? (
+                <>
+                  <div className="flex justify-between py-1.5 border-b border-stone-100">
+                    <span>Today's Collections:</span>
+                    <span className="font-mono font-bold text-stone-900">{currency}{todayRevenueINR.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5 text-stone-500">
+                    <span>Lifetime Financials:</span>
+                    <span className="text-[11px] font-medium text-stone-500 italic">Doctor & Admin Only</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between py-1.5 border-b border-stone-100">
+                    <span>Total Lifetime Revenue:</span>
+                    <span className="font-mono font-bold text-stone-900">{currency}{totalRevenueINR.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between py-1.5">
+                    <span>Pending Receivables:</span>
+                    <span className="font-mono font-bold text-amber-800">{currency}{pendingReceivablesINR.toLocaleString('en-IN')}</span>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="mt-4 pt-3 border-t border-stone-100">
@@ -466,7 +474,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 onClick={() => setActiveTab('billing')}
                 className="w-full py-2 text-xs font-semibold text-stone-800 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer text-center"
               >
-                Open Billing & Revenue Intelligence →
+                {role === 'receptionist' ? "Open Today's Billing Counter →" : "Open Billing & Revenue Intelligence →"}
               </button>
             </div>
           </div>

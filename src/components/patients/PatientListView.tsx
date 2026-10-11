@@ -38,12 +38,29 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
     invoices, 
     startConsultation, 
     openPrescriptionPrint,
-    updatePatient 
+    updatePatient,
+    activeViewingPatientId,
+    closePatientDetails 
   } = useClinic();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatientForDetails, setSelectedPatientForDetails] = useState<Patient | null>(null);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+
+  // Sync selected patient if opened via activeViewingPatientId (e.g. from Command Palette)
+  React.useEffect(() => {
+    if (activeViewingPatientId) {
+      const target = patients.find(p => p.id === activeViewingPatientId);
+      if (target) {
+        setSelectedPatientForDetails(target);
+      }
+    }
+  }, [activeViewingPatientId, patients]);
+
+  const handleCloseDetailsModal = () => {
+    setSelectedPatientForDetails(null);
+    closePatientDetails();
+  };
 
   // Search filter
   const filteredPatients = patients.filter(patient => {
@@ -254,7 +271,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
                 <button
                   onClick={() => {
                     startConsultation(selectedPatientForDetails);
-                    setSelectedPatientForDetails(null);
+                    handleCloseDetailsModal();
                   }}
                   className="px-3 py-1.5 text-xs font-semibold text-indigo-900 bg-indigo-100 hover:bg-indigo-200 border border-indigo-200 rounded-lg shadow-2xs cursor-pointer"
                 >
@@ -262,7 +279,7 @@ export const PatientListView: React.FC<PatientListViewProps> = ({
                 </button>
 
                 <button
-                  onClick={() => setSelectedPatientForDetails(null)}
+                  onClick={handleCloseDetailsModal}
                   className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                   aria-label="Close Modal"
                 >

@@ -10,15 +10,21 @@ import {
   CreditCard, 
   Database,
   Sliders,
-  AlertCircle
+  AlertCircle,
+  Search
 } from 'lucide-react';
 
 interface SidebarProps {
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
+  onOpenCommandPalette?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ 
+  isMobileOpen, 
+  onCloseMobile,
+  onOpenCommandPalette 
+}) => {
   const { 
     activeTab, 
     setActiveTab, 
@@ -103,6 +109,29 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, onCloseMobile })
 
   const navContent = (
     <div className="flex flex-col h-full py-4">
+      {/* Global Command Palette Trigger Button */}
+      {onOpenCommandPalette && (
+        <div className="px-3 mb-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (onCloseMobile) onCloseMobile();
+              onOpenCommandPalette();
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200/90 border border-slate-200/80 rounded-xl transition-all cursor-pointer shadow-2xs group"
+            title="Open command palette (⌘K / Ctrl+K)"
+          >
+            <div className="flex items-center gap-2">
+              <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
+              <span>Quick Search</span>
+            </div>
+            <kbd className="font-mono text-[10px] font-semibold bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs text-slate-500 group-hover:border-indigo-300 group-hover:text-indigo-600 transition-colors">
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+      )}
+
       <div className="px-4 mb-2">
         <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
           Practice Navigation
