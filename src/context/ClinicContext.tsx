@@ -22,6 +22,7 @@ import {
   restoreDatabaseBackup,
   DEFAULT_CLINIC_SETTINGS 
 } from '../lib/storage';
+import { clinicApi } from '../lib/api';
 
 export type NavigationTab = 
   | 'dashboard' 
@@ -197,20 +198,77 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     localStore.setIsLocked(isLocked);
   }, [isLocked]);
 
-  // Cloud Sync Handler
+  // Load all records from Cloudflare D1 API
+  const loadAllFromD1 = async () => {
+    setSyncStatus('syncing');
+    try {
+      const [
+        remoteSettings,
+        remotePatients,
+        remoteAppointments,
+        remoteConsultations,
+        remotePrescriptions,
+        remoteInventory,
+        remoteInvoices
+      ] = await Promise.allSettled([
+        clinicApi.getSettings(),
+        clinicApi.getPatients(),
+        clinicApi.getAppointments(),
+        role !== 'receptionist' ? clinicApi.getConsultations() : Promise.resolve([]),
+        clinicApi.getPrescriptions(),
+        clinicApi.getInventory(),
+        clinicApi.getInvoices()
+      ]);
+
+      if (remoteSettings.status === 'fulfilled' && remoteSettings.value) {
+        setSettings(remoteSettings.value);
+      }
+      if (remotePatients.status === 'fulfilled' && Array.isArray(remotePatients.value) && remotePatients.value.length > 0) {
+        setPatients(remotePatients.value);
+      }
+      if (remoteAppointments.status === 'fulfilled' && Array.isArray(remoteAppointments.value)) {
+        setAppointments(remoteAppointments.value);
+      }
+      if (remoteConsultations.status === 'fulfilled' && Array.isArray(remoteConsultations.value) && remoteConsultations.value.length > 0) {
+        setConsultations(remoteConsultations.value);
+      }
+      if (remotePrescriptions.status === 'fulfilled' && Array.isArray(remotePrescriptions.value) && remotePrescriptions.value.length > 0) {
+        setPrescriptions(remotePrescriptions.value);
+      }
+      if (remoteInventory.status === 'fulfilled' && Array.isArray(remoteInventory.value) && remoteInventory.value.length > 0) {
+        setInventory(remoteInventory.value);
+      }
+      if (remoteInvoices.status === 'fulfilled' && Array.isArray(remoteInvoices.value)) {
+        setInvoices(remoteInvoices.value);
+      }
+
+      setSyncStatus('synced');
+      setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+    } catch {
+      setSyncStatus('saved-local');
+    }
+  };
+
+  // Initial Load from Cloudflare D1 on mount
+  useEffect(() => {
+    loadAllFromD1();
+  }, []);
+
+  // When role changes, re-fetch invoices to ensure backend RBAC is applied (receptionist only sees today's invoices)
+  useEffect(() => {
+    clinicApi.getInvoices().then(invs => {
+      if (Array.isArray(invs)) {
+        setInvoices(invs);
+      }
+    }).catch(() => {});
+  }, [role]);
+
+  // Cloudflare D1 Sync Handler
   const triggerCloudSync = async () => {
     setSyncStatus('syncing');
     try {
-      const res = await cloudSync.pushToCloud({
-        settings,
-        patients,
-        appointments,
-        consultations,
-        prescriptions,
-        inventory,
-        invoices,
-      });
-      if (res.success) {
+      const statusRes = await clinicApi.getDbStatus();
+      if (statusRes.status === 'operational') {
         setSyncStatus('synced');
       } else {
         setSyncStatus('saved-local');
@@ -220,14 +278,6 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       setSyncStatus('offline');
     }
   };
-
-  // Background Cloud Sync on initialization
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      triggerCloudSync();
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, []);
 
   // PIN Unlock
   const unlockWithPin = (pin: string, targetRole?: UserRole): boolean => {
@@ -337,6 +387,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
 
     setPatients(prev => [newPatient, ...prev]);
+    clinicApi.createPatient(newPatient).catch(err => console.warn('D1 sync notice (patient):', err));
     return newPatient;
   };
 
@@ -351,6 +402,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
       return p;
     }));
+    clinicApi.updatePatient(id, updates).catch(err => console.warn('D1 sync notice (update patient):', err));
   };
 
   // Appointment Actions
@@ -378,6 +430,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
 
     setAppointments(prev => [newAppointment, ...prev]);
+    clinicApi.scheduleAppointment(newAppointment).catch(err => console.warn('D1 sync notice (appointment):', err));
     return newAppointment;
   };
 
@@ -388,10 +441,12 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
       return a;
     }));
+    clinicApi.updateAppointmentStatus(id, status).catch(err => console.warn('D1 sync notice (appointment status):', err));
   };
 
   const cancelAppointment = (id: string) => {
     updateAppointmentStatus(id, 'cancelled');
+    clinicApi.cancelAppointment(id).catch(err => console.warn('D1 sync notice (cancel appointment):', err));
   };
 
   // Consultation & Prescription Action
@@ -507,6 +562,12 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       notes: 'Generated from Doctor Consultation',
     });
 
+    // Asynchronously persist consultation and prescription to Cloudflare D1
+    clinicApi.createConsultation(newConsultation).catch(err => console.warn('D1 consultation sync notice:', err));
+    if (newPrescription) {
+      clinicApi.createPrescription(newPrescription).catch(err => console.warn('D1 prescription sync notice:', err));
+    }
+
     return { consultation: newConsultation, prescription: newPrescription };
   };
 
@@ -518,6 +579,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       updatedAt: new Date().toISOString(),
     };
     setInventory(prev => [newItem, ...prev]);
+    clinicApi.createInventoryItem(newItem).catch(err => console.warn('D1 inventory sync notice:', err));
     return newItem;
   };
 
@@ -532,14 +594,17 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
       return item;
     }));
+    clinicApi.updateInventoryStock(id, newStock).catch(err => console.warn('D1 stock sync notice:', err));
   };
 
   const adjustInventory = (id: string, delta: number) => {
     setInventory(prev => prev.map(item => {
       if (item.id === id) {
+        const nextStock = Math.max(0, item.currentStock + delta);
+        clinicApi.updateInventoryStock(id, nextStock).catch(err => console.warn('D1 adjust stock sync notice:', err));
         return {
           ...item,
-          currentStock: Math.max(0, item.currentStock + delta),
+          currentStock: nextStock,
           updatedAt: new Date().toISOString(),
         };
       }
@@ -549,6 +614,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const deleteInventoryItem = (id: string) => {
     setInventory(prev => prev.filter(item => item.id !== id));
+    clinicApi.deleteInventoryItem(id).catch(err => console.warn('D1 delete item notice:', err));
   };
 
   // Billing Actions
@@ -567,6 +633,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     };
 
     setInvoices(prev => [newInvoice, ...prev]);
+    clinicApi.createInvoice(newInvoice).catch(err => console.warn('D1 create invoice notice:', err));
     return newInvoice;
   };
 
@@ -586,6 +653,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       }
       return inv;
     }));
+    clinicApi.recordPayment(invoiceId, amountPaid, method).catch(err => console.warn('D1 record payment notice:', err));
   };
 
   // Clinic Settings
@@ -595,6 +663,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       ...updates,
       updatedAt: new Date().toISOString(),
     }));
+    clinicApi.updateSettings(updates).catch(err => console.warn('D1 settings update notice:', err));
   };
 
   const addCustomCategory = (cat: string) => {

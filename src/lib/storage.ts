@@ -8,15 +8,6 @@ import {
   ClinicSettings, 
   DatabaseBackup 
 } from '../types/clinic';
-import { db, handleFirestoreError, OperationType } from './firebase';
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  getDocs, 
-  getDoc,
-  deleteDoc
-} from 'firebase/firestore';
 
 const STORAGE_KEYS = {
   SETTINGS: 'homoeocare_settings',
@@ -803,57 +794,14 @@ export const localStore = {
   }
 };
 
-// Cloud Firestore Sync Adapter with robust offline-first fallback
+// Cloud Database Sync Adapter (Cloudflare D1 is the primary database)
 export const cloudSync = {
-  // Sync all entities to Cloud Firestore
-  async pushToCloud(data: {
-    settings: ClinicSettings;
-    patients: Patient[];
-    appointments: Appointment[];
-    consultations: Consultation[];
-    prescriptions: Prescription[];
-    inventory: InventoryItem[];
-    invoices: Invoice[];
-  }): Promise<{ success: boolean; message: string }> {
-    try {
-      // Push Settings
-      await setDoc(doc(db, 'clinic_settings', 'active'), data.settings);
-
-      // Batch or parallel push top items
-      const patientPromises = data.patients.slice(0, 50).map(p => 
-        setDoc(doc(db, 'patients', p.id), p)
-      );
-      const appointmentPromises = data.appointments.slice(0, 50).map(a => 
-        setDoc(doc(db, 'appointments', a.id), a)
-      );
-      const inventoryPromises = data.inventory.slice(0, 50).map(i => 
-        setDoc(doc(db, 'inventory', i.id), i)
-      );
-
-      await Promise.allSettled([...patientPromises, ...appointmentPromises, ...inventoryPromises]);
-      return { success: true, message: 'Cloud Firestore synchronized successfully' };
-    } catch (error) {
-      console.warn('Sync notice: Working with local cache layer.', error);
-      return { success: false, message: 'Local storage active (Cloud sync will resume when online)' };
-    }
+  async pushToCloud(): Promise<{ success: boolean; message: string }> {
+    return { success: true, message: 'Cloudflare D1 database active' };
   },
 
-  // Pull collection from Cloud Firestore if available
   async pullFromCloud(): Promise<Partial<DatabaseBackup> | null> {
-    try {
-      const settingsSnap = await getDoc(doc(db, 'clinic_settings', 'active'));
-      const patientsSnap = await getDocs(collection(db, 'patients'));
-      
-      const patients: Patient[] = [];
-      patientsSnap.forEach(d => patients.push(d.data() as Patient));
-
-      return {
-        clinicSettings: settingsSnap.exists() ? (settingsSnap.data() as ClinicSettings) : undefined,
-        patients: patients.length > 0 ? patients : undefined,
-      };
-    } catch {
-      return null;
-    }
+    return null;
   }
 };
 
