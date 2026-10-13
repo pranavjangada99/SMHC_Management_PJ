@@ -16,5 +16,4 @@ FIREBASE_PROJECT_ID = "sacred-question-mv4kj"
 CLINIC_NAME = "HomoeoCare Health Centre"
 
 # Cloudflare Pages build output configuration
-# Build command: npm run build
-# Build output directory: dist
+pages_build_output_dir = "dist"

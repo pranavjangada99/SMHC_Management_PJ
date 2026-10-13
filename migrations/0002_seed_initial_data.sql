@@ -71,23 +71,8 @@ VALUES
   ('staff-doctor', 'doctor', 'Dr. Pranav J.', 'Chief Homoeopathic Physician', 'doctor@homoeocareclinic.in', datetime('now')),
   ('staff-receptionist', 'receptionist', 'Sunita Rao', 'Front Desk & Patient Coordinator', 'frontdesk@homoeocareclinic.in', datetime('now'));
 
--- Seed Initial Patients
-INSERT OR IGNORE INTO patients (id, patient_id, name, gender, age, dob, phone, email, address, blood_group, constitutional_type, allergies, medical_history, total_visits, last_visit_date, created_at, updated_at)
-VALUES
-  ('pat-1', 'SMHC-2026-0001', 'Aarav Sharma', 'male', 34, '1992-05-14', '+91 98234 11223', 'aarav.sharma@gmail.com', 'Flat 302, Green Glen Towers, Baner, Pune', 'B+', 'Nux Vomica (Sedentary, stressed, irritable)', 'None reported', 'Chronic acidity, episodic dyspepsia, work stress', 4, '2026-10-08', '2026-08-12T10:00:00Z', '2026-10-08T11:30:00Z'),
-  ('pat-2', 'SMHC-2026-0002', 'Priyanka Desai', 'female', 28, '1998-11-20', '+91 98110 44556', 'priyanka.desai@outlook.com', 'B-14, Shreeram Residency, Kothrud, Pune', 'O+', 'Pulsatilla (Mild, weeping easily, thirstless, seeks open air)', 'Penicillin, Dust mites', 'Irregular menses, chronic allergic rhinitis', 3, '2026-10-09', '2026-08-20T09:30:00Z', '2026-10-09T16:00:00Z'),
-  ('pat-3', 'SMHC-2026-0003', 'Rameshwar Patil', 'male', 58, '1968-03-02', '+91 97654 88990', NULL, 'House 12, Sinhagad Road, Pune', 'A+', 'Rhus Toxicodendron / Bryonia', 'None', 'Osteoarthritis bilateral knees, morning stiffness', 6, '2026-10-05', '2026-07-01T14:15:00Z', '2026-10-05T12:00:00Z'),
-  ('pat-4', 'SMHC-2026-0004', 'Meera Iyer', 'female', 12, '2014-07-19', '+91 99220 33112', NULL, 'Sector 4, Aundh, Pune', 'AB+', 'Calcarea Carbonica (Chilly, profuse perspiration on head)', 'Egg albumen', 'Recurrent tonsillitis, cold sensitivity', 2, '2026-10-02', '2026-09-15T11:00:00Z', '2026-10-02T10:30:00Z'),
-  ('pat-5', 'SMHC-2026-0005', 'Vikramaditya Rao', 'male', 45, '1981-09-08', '+91 98451 99221', 'v.rao@techfirm.co.in', '704, Marvel Vista, Viman Nagar, Pune', 'O-', 'Lycopodium Clavatum (Right sided complaints, bloating)', 'Sulfa drugs', 'Flatulence, elevated uric acid, fatty liver grade 1', 1, '2026-10-10', '2026-10-10T08:30:00Z', '2026-10-10T08:30:00Z');
 
--- Seed Initial Inventory Items
-INSERT OR IGNORE INTO inventory (id, name, category, product_type, potency, unit, current_stock, min_reorder_level, unit_price_inr, purchase_price_inr, batch_number, expiry_date, supplier, brand, sub_category, cosmetic_benefit, active_ingredients, shelf_location, updated_at)
-VALUES
-  ('inv-1', 'Arnica Montana', 'dilution', 'medicine', '200C', '30ml phial', 14, 5, 140, 95, 'ARN-2601', '2029-06', 'Dr. Reckeweg Imports', 'Dr. Reckeweg', NULL, NULL, NULL, 'Rack A-1', datetime('now')),
-  ('inv-2', 'Nux Vomica', 'dilution', 'medicine', '30C', '30ml phial', 22, 6, 120, 80, 'NUX-2512', '2029-12', 'SBL Global Ltd.', 'SBL', NULL, NULL, NULL, 'Rack A-2', datetime('now')),
-  ('inv-3', 'Lycopodium Clavatum', 'dilution', 'medicine', '1M', '30ml phial', 8, 4, 160, 110, 'LYC-2508', '2029-08', 'Dr. Reckeweg Imports', 'Dr. Reckeweg', NULL, NULL, NULL, 'Rack A-3', datetime('now')),
-  ('inv-4', 'Berberis Aquifolium Q', 'mother-tincture', 'medicine', 'Q (Mother Tincture)', '100ml bottle', 6, 4, 320, 220, 'BER-2602', '2028-11', 'Schwabe India', 'Schwabe', NULL, NULL, NULL, 'Rack B-1', datetime('now')),
-  ('inv-5', 'Five Phos 6X', 'biochemic', 'medicine', '6X', '450g pack', 4, 5, 380, 260, 'FPH-2510', '2028-10', 'SBL Global Ltd.', 'SBL', NULL, NULL, NULL, 'Rack C-1', datetime('now')),
-  ('inv-6', 'Berberis Aquifolium Skin Glow Cream', 'cosmetic', 'cosmetic', 'Topical Cream (50g)', '50g jar', 18, 5, 240, 150, 'COS-2603', '2027-09', 'Bakson Care', 'Bakson', 'Face Cream', 'Acne scars, hyperpigmentation & radiant complexion', 'Berberis Aquifolium, Sandalwood oil', 'Cosmetics Shelf 1', datetime('now')),
-  ('inv-7', 'Arnica Montana Hair Vitalizer Oil', 'cosmetic', 'cosmetic', 'Hair Tonic Oil (100ml)', '100ml bottle', 15, 6, 280, 175, 'OIL-2601', '2027-12', 'SBL Global Care', 'SBL', 'Hair Oil', 'Prevents hair fall, strengthens roots and delays premature greying', 'Arnica Montana, Jaborandi, Cantharis', 'Cosmetics Shelf 2', datetime('now')),
-  ('inv-8', 'Crataegus Oxyacantha Q', 'mother-tincture', 'medicine', 'Q (Mother Tincture)', '100ml bottle', 3, 5, 340, 230, 'CRA-2507', '2028-07', 'Schwabe India', 'Schwabe', NULL, NULL, NULL, 'Rack B-2', datetime('now'));
+
+
+-- Clean installation starts with zero dummy patients, visits, or medicines
+

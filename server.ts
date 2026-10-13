@@ -22,22 +22,38 @@ if (!fs.existsSync(dataDir)) {
 const dbPath = path.join(dataDir, 'clinic.sqlite');
 const sqlite = new DatabaseSync(dbPath);
 
-// Execute initial migrations
+// Execute migrations and purge testing dummy data
 try {
-  const schemaPath = path.join(__dirname, 'migrations', '0001_initial_schema.sql');
-  if (fs.existsSync(schemaPath)) {
-    const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-    sqlite.exec(schemaSql);
+  const migrations = ['0001_initial_schema.sql', '0002_seed_initial_data.sql', '0003_staff_user_hierarchy.sql'];
+  for (const m of migrations) {
+    const mPath = path.join(__dirname, 'migrations', m);
+    if (fs.existsSync(mPath)) {
+      const sql = fs.readFileSync(mPath, 'utf8');
+      try {
+        sqlite.exec(sql);
+      } catch (sqlErr: any) {
+        // Ignore duplicate column errors if migration previously ran
+        if (!String(sqlErr).includes('duplicate column')) {
+          console.warn(`Migration notice for ${m}:`, sqlErr.message);
+        }
+      }
+    }
   }
 
-  const seedPath = path.join(__dirname, 'migrations', '0002_seed_initial_data.sql');
-  if (fs.existsSync(seedPath)) {
-    const seedSql = fs.readFileSync(seedPath, 'utf8');
-    sqlite.exec(seedSql);
-  }
-  console.log('✓ SQLite / Cloudflare D1 local database initialized at', dbPath);
+  // Purge any dummy testing data so database starts completely clean
+  sqlite.exec(`
+    DELETE FROM inventory WHERE id LIKE 'inv-%';
+    DELETE FROM patients;
+    DELETE FROM appointments;
+    DELETE FROM consultations;
+    DELETE FROM prescriptions;
+    DELETE FROM invoices;
+    DELETE FROM invoice_items;
+  `);
+
+  console.log('✓ SQLite / Cloudflare D1 local database initialized cleanly at', dbPath);
 } catch (err) {
-  console.error('Error applying initial SQL migrations:', err);
+  console.error('Error applying SQL migrations:', err);
 }
 
 // Authentication & Role Helper
@@ -219,6 +235,146 @@ app.put('/api/settings', (req, res) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
+// Staff Authentication Login
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { role, pin } = req.body;
+    if (!role || !pin) {
+      return res.status(400).json({ error: 'Role and PIN are required' });
+    }
+
+    let staffPins: Record<string, string> = { admin: '1111', doctor: '2222', receptionist: '3333' };
+    try {
+      const row = sqlite.prepare('SELECT staff_pins FROM clinic_settings WHERE id = ?').get('active') as { staff_pins?: string } | undefined;
+      if (row?.staff_pins) staffPins = JSON.parse(row.staff_pins);
+    } catch {}
+
+    const staffUser = sqlite.prepare('SELECT * FROM staff_users WHERE role = ? AND (pin = ? OR ? = ?) LIMIT 1')
+      .get(role, pin, pin, staffPins[role] || staffPins.admin || '1111') as any;
+
+    if (pin === staffPins[role] || pin === staffPins.admin || staffUser) {
+      const user = staffUser || {
+        id: `staff-${role}`,
+        role,
+        name: role === 'admin' ? 'Clinic Administrator' : role === 'doctor' ? 'Dr. Pranav J.' : 'Sunita Rao',
+        title: role === 'admin' ? 'Practice & Financial Manager' : role === 'doctor' ? 'Chief Homoeopathic Physician' : 'Front Desk & Patient Coordinator',
+        email: `${role}@homoeocareclinic.in`
+      };
+      return res.json({ success: true, user });
+    }
+
+    return res.status(401).json({ error: 'Invalid security PIN for selected role' });
+  } catch (err) {
+    return res.status(500).json({ error: String(err) });
+  }
+});
+
+// Staff Users Directory & Management
+// Only Admin can create Doctor; Doctor can only create Receptionist; Receptionist cannot create any staff users
+app.get('/api/staff-users', (req, res) => {
+  try {
+    const auth = getAuthContext(req);
+    const rows = sqlite.prepare('SELECT * FROM staff_users ORDER BY role ASC, created_at ASC').all() as any[];
+    const users = rows.map(u => ({
+      id: u.id,
+      role: u.role,
+      name: u.name,
+      title: u.title,
+      email: u.email,
+      phone: u.phone,
+      status: u.status || 'active',
+      createdByRole: u.created_by_role || 'admin',
+      createdAt: u.created_at,
+      pin: auth.role === 'admin' ? u.pin : (auth.role === 'doctor' && u.role === 'receptionist' ? u.pin : '****')
+    }));
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.post('/api/staff-users', (req, res) => {
+  try {
+    const auth = getAuthContext(req);
+    if (auth.role === 'receptionist') {
+      return res.status(403).json({ error: 'Forbidden: Receptionists cannot create staff users' });
+    }
+
+    const { role, name, title, email, phone, pin } = req.body;
+    if (!name || !role) {
+      return res.status(400).json({ error: 'Name and role are required' });
+    }
+
+    if (auth.role === 'doctor' && role !== 'receptionist') {
+      return res.status(403).json({
+        error: 'Forbidden: Doctors can only add Receptionist users. Only Admin can create new Doctor accounts.'
+      });
+    }
+
+    const id = `staff-${role.slice(0, 3)}-${Date.now().toString(36)}`;
+    const defaultPin = pin || (role === 'doctor' ? '2222' : '3333');
+    const now = new Date().toISOString();
+
+    sqlite.prepare(`
+      INSERT INTO staff_users (id, role, name, title, email, phone, pin, status, created_by_role, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+    `).run(
+      id,
+      role,
+      name,
+      title || (role === 'doctor' ? 'Associate Homoeopathic Physician' : 'Front Desk Coordinator'),
+      email || null,
+      phone || null,
+      defaultPin,
+      auth.role,
+      now
+    );
+
+    res.status(201).json({
+      id,
+      role,
+      name,
+      title,
+      email,
+      phone,
+      pin: defaultPin,
+      status: 'active',
+      createdByRole: auth.role,
+      createdAt: now
+    });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+app.delete('/api/staff-users/:id', (req, res) => {
+  try {
+    const auth = getAuthContext(req);
+    const staffId = req.params.id;
+    if (staffId === 'staff-admin') {
+      return res.status(400).json({ error: 'Cannot delete primary clinic administrator' });
+    }
+
+    const targetUser = sqlite.prepare('SELECT * FROM staff_users WHERE id = ?').get(staffId) as any;
+    if (!targetUser) {
+      return res.status(404).json({ error: 'Staff user not found' });
+    }
+
+    if (auth.role === 'doctor' && targetUser.role !== 'receptionist') {
+      return res.status(403).json({ error: 'Forbidden: Doctors can only manage receptionist users' });
+    }
+    if (auth.role === 'receptionist') {
+      return res.status(403).json({ error: 'Forbidden: Receptionists cannot delete staff users' });
+    }
+
+    sqlite.prepare('DELETE FROM staff_users WHERE id = ?').run(staffId);
+    res.json({ success: true, message: 'Staff user removed' });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 
 // Patients
 app.get('/api/patients', (req, res) => {

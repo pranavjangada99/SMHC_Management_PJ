@@ -13,6 +13,7 @@ import {
   Invoice,
   ClinicSettings,
   UserRole,
+  StaffUser,
   PaymentMethod,
 } from '../types/clinic';
 import { auth } from './firebase';
@@ -37,13 +38,18 @@ function getAuthHeaders(): Record<string, string> {
   };
 
   try {
-    const role = localStorage.getItem('homoeocare_active_role') || 'doctor';
-    headers['X-Staff-Role'] = role;
+    const role = localStorage.getItem('homoeocare_active_role') || '';
+    if (role) headers['X-Staff-Role'] = role;
 
-    // Attach Firebase token if current user is logged in
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      // Async token or cached token if available
+    const pin = localStorage.getItem('homoeocare_staff_pin') || '';
+    if (pin) headers['X-Staff-Pin'] = pin;
+
+    const sessionStr = sessionStorage.getItem('homoeocare_auth_session') || localStorage.getItem('homoeocare_auth_session');
+    if (sessionStr) {
+      const parsed = JSON.parse(sessionStr);
+      if (parsed.id) headers['X-Staff-Id'] = parsed.id;
+      if (parsed.role) headers['X-Staff-Role'] = parsed.role;
+      if (parsed.pin) headers['X-Staff-Pin'] = parsed.pin;
     }
   } catch {
     // fallback
@@ -385,6 +391,32 @@ export const clinicApi = {
     });
   },
 
+  // Staff Users & Role Hierarchy Management
+  async getStaffUsers(): Promise<StaffUser[]> {
+    return apiRequest<StaffUser[]>('/api/staff-users');
+  },
+
+  async createStaffUser(staff: { role: UserRole; name: string; title?: string; email?: string; phone?: string; pin?: string }): Promise<StaffUser> {
+    const res = await apiRequest<StaffUser>('/api/staff-users', {
+      method: 'POST',
+      body: JSON.stringify(staff),
+    });
+    return res;
+  },
+
+  async deleteStaffUser(id: string): Promise<void> {
+    await apiRequest(`/api/staff-users/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  async loginStaff(role: UserRole, pin: string): Promise<{ success: boolean; user?: StaffUser; error?: string }> {
+    return apiRequest<{ success: boolean; user?: StaffUser; error?: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ role, pin }),
+    });
+  },
+
   // Migration from Firestore
   async migrateFromFirestore(payload: Record<string, any>): Promise<{ success: boolean; message: string; migratedCounts?: Record<string, number> }> {
     return apiRequest<{ success: boolean; message: string; migratedCounts?: Record<string, number> }>('/api/migrate-from-firestore', {
@@ -393,3 +425,4 @@ export const clinicApi = {
     });
   },
 };
+

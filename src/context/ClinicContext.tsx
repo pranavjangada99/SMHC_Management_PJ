@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { 
   UserRole, 
   StaffProfile, 
+  StaffUser,
   Patient, 
   Appointment, 
   AppointmentStatus,
@@ -41,9 +42,14 @@ export interface ClinicContextType {
   isLocked: boolean;
   staffProfiles: Record<UserRole, StaffProfile>;
   currentStaff: StaffProfile;
-  unlockWithPin: (pin: string, targetRole?: UserRole) => boolean;
+  staffUsers: StaffUser[];
+  loadStaffUsers: () => Promise<void>;
+  createStaffUser: (staff: { role: UserRole; name: string; title?: string; email?: string; phone?: string; pin?: string }) => Promise<StaffUser>;
+  deleteStaffUser: (id: string) => Promise<void>;
+  unlockWithPin: (pin: string, targetRole?: UserRole) => Promise<boolean> | boolean;
   switchRole: (role: UserRole) => void;
   lockSession: () => void;
+  logout: () => void;
   updateStaffPins: (pins: StaffPins) => void;
 
   // Navigation
@@ -111,8 +117,9 @@ const ClinicContext = createContext<ClinicContextType | undefined>(undefined);
 
 export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Staff Role & PIN State
-  const [role, setRole] = useState<UserRole>(() => localStore.getActiveRole() as UserRole);
+  const [role, setRole] = useState<UserRole>(() => (localStore.getActiveRole() as UserRole) || 'admin');
   const [isLocked, setIsLocked] = useState<boolean>(() => localStore.getIsLocked());
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
 
   // Navigation State
   const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
@@ -124,14 +131,26 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [activeInvoiceToPrint, setActiveInvoiceToPrint] = useState<Invoice | null>(null);
   const [activeViewingPatientId, setActiveViewingPatientId] = useState<string | null>(null);
 
-  // Entities State
+  // Entities State (filters any legacy test dummy IDs)
   const [settings, setSettings] = useState<ClinicSettings>(() => localStore.getSettings());
-  const [patients, setPatients] = useState<Patient[]>(() => localStore.getPatients());
-  const [appointments, setAppointments] = useState<Appointment[]>(() => localStore.getAppointments());
-  const [consultations, setConsultations] = useState<Consultation[]>(() => localStore.getConsultations());
-  const [prescriptions, setPrescriptions] = useState<Prescription[]>(() => localStore.getPrescriptions());
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => localStore.getInventory());
-  const [invoices, setInvoices] = useState<Invoice[]>(() => localStore.getInvoices());
+  const [patients, setPatients] = useState<Patient[]>(() => {
+    return localStore.getPatients().filter(p => !p.id.startsWith('pat-dummy') && p.id !== 'pat-1' && p.id !== 'pat-2');
+  });
+  const [appointments, setAppointments] = useState<Appointment[]>(() => {
+    return localStore.getAppointments().filter(a => a.id !== 'apt-old-1');
+  });
+  const [consultations, setConsultations] = useState<Consultation[]>(() => {
+    return localStore.getConsultations().filter(c => c.id !== 'con-1');
+  });
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>(() => {
+    return localStore.getPrescriptions().filter(p => p.id !== 'rx-1');
+  });
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
+    return localStore.getInventory().filter(i => !i.id.startsWith('inv-'));
+  });
+  const [invoices, setInvoices] = useState<Invoice[]>(() => {
+    return localStore.getInvoices().filter(i => !i.id.startsWith('inv-rec-'));
+  });
 
   // Sync Diagnostics
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'saved-local'>('saved-local');
@@ -223,19 +242,19 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       if (remoteSettings.status === 'fulfilled' && remoteSettings.value) {
         setSettings(remoteSettings.value);
       }
-      if (remotePatients.status === 'fulfilled' && Array.isArray(remotePatients.value) && remotePatients.value.length > 0) {
+      if (remotePatients.status === 'fulfilled' && Array.isArray(remotePatients.value)) {
         setPatients(remotePatients.value);
       }
       if (remoteAppointments.status === 'fulfilled' && Array.isArray(remoteAppointments.value)) {
         setAppointments(remoteAppointments.value);
       }
-      if (remoteConsultations.status === 'fulfilled' && Array.isArray(remoteConsultations.value) && remoteConsultations.value.length > 0) {
+      if (remoteConsultations.status === 'fulfilled' && Array.isArray(remoteConsultations.value)) {
         setConsultations(remoteConsultations.value);
       }
-      if (remotePrescriptions.status === 'fulfilled' && Array.isArray(remotePrescriptions.value) && remotePrescriptions.value.length > 0) {
+      if (remotePrescriptions.status === 'fulfilled' && Array.isArray(remotePrescriptions.value)) {
         setPrescriptions(remotePrescriptions.value);
       }
-      if (remoteInventory.status === 'fulfilled' && Array.isArray(remoteInventory.value) && remoteInventory.value.length > 0) {
+      if (remoteInventory.status === 'fulfilled' && Array.isArray(remoteInventory.value)) {
         setInventory(remoteInventory.value);
       }
       if (remoteInvoices.status === 'fulfilled' && Array.isArray(remoteInvoices.value)) {
@@ -249,9 +268,33 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
+  // Staff Users Directory Management
+  const loadStaffUsers = async () => {
+    try {
+      const users = await clinicApi.getStaffUsers();
+      if (Array.isArray(users)) {
+        setStaffUsers(users);
+      }
+    } catch (err) {
+      console.warn('Could not load staff users from API:', err);
+    }
+  };
+
+  const createStaffUser = async (staff: { role: UserRole; name: string; title?: string; email?: string; phone?: string; pin?: string }): Promise<StaffUser> => {
+    const created = await clinicApi.createStaffUser(staff);
+    setStaffUsers(prev => [...prev, created]);
+    return created;
+  };
+
+  const deleteStaffUser = async (id: string): Promise<void> => {
+    await clinicApi.deleteStaffUser(id);
+    setStaffUsers(prev => prev.filter(u => u.id !== id));
+  };
+
   // Initial Load from Cloudflare D1 on mount
   useEffect(() => {
     loadAllFromD1();
+    loadStaffUsers();
   }, []);
 
   // When role changes, re-fetch invoices to ensure backend RBAC is applied (receptionist only sees today's invoices)
@@ -279,34 +322,69 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  // PIN Unlock
-  const unlockWithPin = (pin: string, targetRole?: UserRole): boolean => {
-    const roleToCheck = targetRole || role;
-    const requiredPin = settings.staffPins?.[roleToCheck] || staffProfiles[roleToCheck].defaultPin;
-    
-    // Also allow master admin PIN
+  // PIN Unlock / Login handler
+  const unlockWithPin = async (pin: string, targetRole?: UserRole): Promise<boolean> => {
+    const roleToCheck = targetRole || role || 'admin';
+    const requiredPin = settings.staffPins?.[roleToCheck] || staffProfiles[roleToCheck]?.defaultPin || (roleToCheck === 'admin' ? '1111' : roleToCheck === 'doctor' ? '2222' : '3333');
     const masterAdminPin = settings.staffPins?.admin || '1111';
 
-    if (pin === requiredPin || pin === masterAdminPin) {
+    // Check if entered PIN matches role settings or individual staff user PIN
+    const matchingStaffUser = staffUsers.find(u => u.role === roleToCheck && u.pin === pin);
+    const isMatch = (pin === requiredPin || pin === masterAdminPin || !!matchingStaffUser);
+
+    if (isMatch) {
       if (targetRole) {
         setRole(targetRole);
       }
       setIsLocked(false);
+      localStore.setAuthSession({
+        id: matchingStaffUser ? matchingStaffUser.id : `staff-${roleToCheck}`,
+        role: roleToCheck,
+        name: matchingStaffUser ? matchingStaffUser.name : staffProfiles[roleToCheck]?.name || 'Staff User',
+        title: matchingStaffUser ? matchingStaffUser.title : staffProfiles[roleToCheck]?.title || ''
+      });
+      localStorage.setItem('homoeocare_staff_pin', pin);
+      loadStaffUsers();
       return true;
     }
+
+    // Try backend verification against D1
+    try {
+      const res = await clinicApi.loginStaff(roleToCheck, pin);
+      if (res.success && res.user) {
+        setRole(res.user.role);
+        setIsLocked(false);
+        localStore.setAuthSession({
+          id: res.user.id,
+          role: res.user.role,
+          name: res.user.name,
+          title: res.user.title
+        });
+        localStorage.setItem('homoeocare_staff_pin', pin);
+        loadStaffUsers();
+        return true;
+      }
+    } catch {
+      // fallback
+    }
+
     return false;
   };
 
   const switchRole = (newRole: UserRole) => {
     setRole(newRole);
-    // If switching between roles, require PIN re-confirmation for admin
-    if (newRole === 'admin') {
-      setIsLocked(true);
-    }
+    // If switching between roles, require PIN re-confirmation
+    setIsLocked(true);
+  };
+
+  const logout = () => {
+    localStore.clearAuthSession();
+    localStorage.removeItem('homoeocare_staff_pin');
+    setIsLocked(true);
   };
 
   const lockSession = () => {
-    setIsLocked(true);
+    logout();
   };
 
   const updateStaffPins = (pins: StaffPins) => {
@@ -784,9 +862,14 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         isLocked,
         staffProfiles,
         currentStaff,
+        staffUsers,
+        loadStaffUsers,
+        createStaffUser,
+        deleteStaffUser,
         unlockWithPin,
         switchRole,
         lockSession,
+        logout,
         updateStaffPins,
         activeTab,
         setActiveTab,

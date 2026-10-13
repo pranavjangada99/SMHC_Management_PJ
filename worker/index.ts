@@ -258,6 +258,143 @@ export default {
         }
       }
 
+      // 2.1 Staff Authentication Login
+      if (path === '/api/auth/login' && method === 'POST') {
+        const body = (await request.json()) as { role?: UserRole; pin?: string };
+        const role = body.role;
+        const pin = body.pin;
+
+        if (!role || !pin) {
+          return jsonResponse({ error: 'Role and PIN are required' }, 400, request);
+        }
+
+        const settingsRow = await env.DB.prepare('SELECT staff_pins FROM clinic_settings WHERE id = ?').bind('active').first<{ staff_pins?: string }>();
+        let staffPins: Record<string, string> = { admin: '1111', doctor: '2222', receptionist: '3333' };
+        if (settingsRow?.staff_pins) {
+          try { staffPins = JSON.parse(settingsRow.staff_pins); } catch {}
+        }
+
+        const staffUser = await env.DB.prepare('SELECT * FROM staff_users WHERE role = ? AND (pin = ? OR ? = ?) LIMIT 1')
+          .bind(role, pin, pin, staffPins[role] || staffPins.admin || '1111')
+          .first<{ id: string; role: UserRole; name: string; title: string; email: string }>();
+
+        if (pin === staffPins[role] || pin === staffPins.admin || staffUser) {
+          const user = staffUser || {
+            id: `staff-${role}`,
+            role,
+            name: role === 'admin' ? 'Clinic Administrator' : role === 'doctor' ? 'Dr. Pranav J.' : 'Sunita Rao',
+            title: role === 'admin' ? 'Practice & Financial Manager' : role === 'doctor' ? 'Chief Homoeopathic Physician' : 'Front Desk & Patient Coordinator',
+            email: `${role}@homoeocareclinic.in`
+          };
+          return jsonResponse({ success: true, user }, 200, request);
+        }
+
+        return jsonResponse({ error: 'Invalid security PIN for selected role' }, 401, request);
+      }
+
+      // 2.2 Staff Users Directory & Management
+      // Only Admin can create Doctor; Doctor can only create Receptionist
+      if (path === '/api/staff-users' || path.startsWith('/api/staff-users/')) {
+        if (method === 'GET') {
+          const rows = await env.DB.prepare('SELECT * FROM staff_users ORDER BY role ASC, created_at ASC').all();
+          const users = (rows.results || []).map((u: any) => ({
+            id: u.id,
+            role: u.role,
+            name: u.name,
+            title: u.title,
+            email: u.email,
+            phone: u.phone,
+            status: u.status || 'active',
+            createdByRole: u.created_by_role || 'admin',
+            createdAt: u.created_at,
+            pin: auth.role === 'admin' ? u.pin : (auth.role === 'doctor' && u.role === 'receptionist' ? u.pin : '****')
+          }));
+          return jsonResponse(users, 200, request);
+        }
+
+        if (method === 'POST') {
+          if (auth.role === 'receptionist') {
+            return jsonResponse({ error: 'Forbidden: Receptionists cannot create staff users' }, 403, request);
+          }
+
+          const body = (await request.json()) as {
+            role: UserRole;
+            name: string;
+            title?: string;
+            email?: string;
+            phone?: string;
+            pin?: string;
+          };
+
+          if (!body.name || !body.role) {
+            return jsonResponse({ error: 'Name and role are required' }, 400, request);
+          }
+
+          if (auth.role === 'doctor' && body.role !== 'receptionist') {
+            return jsonResponse({
+              error: 'Forbidden: Doctors can only add Receptionist users. Only Admin can create new Doctor accounts.'
+            }, 403, request);
+          }
+
+          const id = `staff-${body.role.slice(0, 3)}-${Date.now().toString(36)}`;
+          const defaultPin = body.pin || (body.role === 'doctor' ? '2222' : '3333');
+          const now = new Date().toISOString();
+
+          await env.DB.prepare(
+            `INSERT INTO staff_users (id, role, name, title, email, phone, pin, status, created_by_role, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)`
+          ).bind(
+            id,
+            body.role,
+            body.name,
+            body.title || (body.role === 'doctor' ? 'Associate Homoeopathic Physician' : 'Front Desk Coordinator'),
+            body.email || null,
+            body.phone || null,
+            defaultPin,
+            auth.role,
+            now
+          ).run();
+
+          return jsonResponse({
+            id,
+            role: body.role,
+            name: body.name,
+            title: body.title,
+            email: body.email,
+            phone: body.phone,
+            pin: defaultPin,
+            status: 'active',
+            createdByRole: auth.role,
+            createdAt: now
+          }, 201, request);
+        }
+
+        if (method === 'DELETE') {
+          const staffId = path.split('/')[3];
+          if (!staffId) {
+            return jsonResponse({ error: 'Staff ID required' }, 400, request);
+          }
+          if (staffId === 'staff-admin') {
+            return jsonResponse({ error: 'Cannot delete primary clinic administrator' }, 400, request);
+          }
+
+          const targetUser = await env.DB.prepare('SELECT * FROM staff_users WHERE id = ?').bind(staffId).first<any>();
+          if (!targetUser) {
+            return jsonResponse({ error: 'Staff user not found' }, 404, request);
+          }
+
+          if (auth.role === 'doctor' && targetUser.role !== 'receptionist') {
+            return jsonResponse({ error: 'Forbidden: Doctors can only manage receptionist users' }, 403, request);
+          }
+          if (auth.role === 'receptionist') {
+            return jsonResponse({ error: 'Forbidden: Receptionists cannot delete staff users' }, 403, request);
+          }
+
+          await env.DB.prepare('DELETE FROM staff_users WHERE id = ?').bind(staffId).run();
+          return jsonResponse({ success: true, message: 'Staff user removed' }, 200, request);
+        }
+      }
+
       // 3. Patients API
       if (path === '/api/patients' || path.startsWith('/api/patients/')) {
         const patientId = path.replace('/api/patients', '').replace(/^\//, '');

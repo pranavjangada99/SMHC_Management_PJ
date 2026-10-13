@@ -18,7 +18,7 @@ import { BillingView } from './components/billing/BillingView';
 import { PracticeSettingsView } from './components/settings/PracticeSettingsView';
 import { BackupRestoreView } from './components/backup/BackupRestoreView';
 
-// Modals
+import { LoginScreen } from './components/auth/LoginScreen';
 import { PinAuthModal } from './components/auth/PinAuthModal';
 import { PrescriptionPrintModal } from './components/prescription/PrescriptionPrintModal';
 import { InvoiceReceiptPrintModal } from './components/billing/InvoiceReceiptPrintModal';
@@ -35,7 +35,12 @@ import {
 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { activeTab, setActiveTab, role } = useClinic();
+  const { activeTab, setActiveTab, role, isLocked } = useClinic();
+
+  // If unauthenticated or locked, show the dedicated full-screen Login Screen
+  if (isLocked) {
+    return <LoginScreen />;
+  }
   
   // Mobile drawer state
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);

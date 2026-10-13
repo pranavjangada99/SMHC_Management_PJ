@@ -11,6 +11,19 @@ export interface StaffProfile {
   defaultPin: string;
 }
 
+export interface StaffUser {
+  id: string;
+  role: UserRole;
+  name: string;
+  title?: string;
+  email?: string;
+  phone?: string;
+  pin?: string;
+  status?: string;
+  createdByRole?: string;
+  createdAt: string;
+}
+
 export interface Patient {
   id: string;
   patientId: string; // e.g. SMHC-2026-0001

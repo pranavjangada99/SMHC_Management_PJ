@@ -23,12 +23,16 @@ import {
   Package,
   BellRing,
   SlidersHorizontal,
-  AlertTriangle
+  AlertTriangle,
+  UserPlus
 } from 'lucide-react';
+import { StaffManagementModal } from './StaffManagementModal';
 
 export const PracticeSettingsView: React.FC = () => {
   const { 
+    role,
     settings, 
+    staffUsers,
     updateSettings, 
     updateStaffPins, 
     addCustomCategory, 
@@ -43,6 +47,8 @@ export const PracticeSettingsView: React.FC = () => {
     triggerCloudSync,
     inventory 
   } = useClinic();
+
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
 
   // Active sub-tab
   const [activeSection, setActiveSection] = useState<'profile' | 'pricing' | 'clinical' | 'categories' | 'inventory' | 'staff' | 'upi' | 'theme'>('profile');
@@ -923,71 +929,159 @@ export const PracticeSettingsView: React.FC = () => {
       )}
 
       {/* SECTION 5: STAFF PINS & ROLES */}
+      {/* SECTION 5: STAFF PINS & ROLES */}
       {activeSection === 'staff' && (
-        <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-xs">
-          <div className="mb-6">
-            <h3 className="text-base font-bold text-stone-900">Role Authentication & Staff PINs</h3>
-            <p className="text-xs text-stone-500 mt-0.5">
-              Staff switch between Admin, Doctor, and Receptionist using these 4-digit security PINs.
-            </p>
+        <div className="space-y-6">
+          {/* User Management & Hierarchy Panel */}
+          <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-stone-200/80">
+              <div>
+                <h3 className="text-base font-bold text-stone-900">Staff Accounts & Role Hierarchy</h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Hierarchy Rule: <span className="font-semibold text-indigo-700">Admin creates Doctors</span> • <span className="font-semibold text-blue-700">Doctor adds Receptionists</span>
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {role === 'admin' && (
+                  <button
+                    type="button"
+                    onClick={() => setIsStaffModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-2xs cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    <span>+ Add New Doctor</span>
+                  </button>
+                )}
+
+                {(role === 'admin' || role === 'doctor') && (
+                  <button
+                    type="button"
+                    onClick={() => setIsStaffModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                  >
+                    <UserPlus className="w-3.5 h-3.5 text-blue-600" />
+                    <span>+ Add Receptionist</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* List of current staff accounts */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-2">
+              {staffUsers.length === 0 ? (
+                <div className="col-span-full text-center py-4 text-xs text-stone-400">
+                  Loading active staff accounts...
+                </div>
+              ) : (
+                staffUsers.map(u => (
+                  <div
+                    key={u.id}
+                    className="p-3.5 rounded-2xl bg-stone-50/70 border border-stone-200/80 flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span
+                          className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                            u.role === 'admin'
+                              ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : u.role === 'doctor'
+                              ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                              : 'bg-blue-50 text-blue-800 border-blue-200'
+                          }`}
+                        >
+                          {u.role}
+                        </span>
+                        <span className="text-[11px] font-mono font-bold text-stone-600 bg-white px-2 py-0.5 rounded border border-stone-200">
+                          PIN: {u.pin || '••••'}
+                        </span>
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800 truncate">{u.name}</h4>
+                      {u.title && <p className="text-[11px] text-slate-500 truncate">{u.title}</p>}
+                    </div>
+                    {u.createdByRole && (
+                      <p className="text-[10px] text-slate-400 italic mt-2 pt-2 border-t border-stone-200/60">
+                        Added by {u.createdByRole}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {role === 'doctor' && (
+              <div className="mt-3 p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-[11px] text-indigo-900">
+                Notice: As Doctor, you can provision Receptionist accounts for your front desk. Doctor accounts must be provisioned by Clinic Administrator.
+              </div>
+            )}
           </div>
 
-          <form onSubmit={handleSavePins} className="space-y-4 max-w-lg">
-            <div className="flex items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-200/80">
-              <div>
-                <span className="text-xs font-bold text-stone-900 block">Admin PIN</span>
-                <span className="text-[11px] text-stone-500">Full practice management, backups & settings</span>
-              </div>
-              <input
-                type="password"
-                maxLength={4}
-                value={adminPin}
-                onChange={e => setAdminPin(e.target.value.replace(/\D/g, ''))}
-                className="w-24 text-center font-mono tracking-widest text-base font-bold px-2 py-1.5 bg-white border border-stone-300 rounded-xl focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 focus:outline-hidden"
-                required
-              />
+          {/* Master PIN Configuration */}
+          <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-xs">
+            <div className="mb-6">
+              <h3 className="text-base font-bold text-stone-900">Station Security PINs</h3>
+              <p className="text-xs text-stone-500 mt-0.5">
+                Default 4-digit security PIN codes for counter station authentication.
+              </p>
             </div>
 
-            <div className="flex items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-200/80">
-              <div>
-                <span className="text-xs font-bold text-stone-900 block">Doctor PIN</span>
-                <span className="text-[11px] text-stone-500">EMR clinical consultations, prescription generator</span>
+            <form onSubmit={handleSavePins} className="space-y-4 max-w-lg">
+              <div className="flex items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-200/80">
+                <div>
+                  <span className="text-xs font-bold text-stone-900 block">Admin PIN</span>
+                  <span className="text-[11px] text-stone-500">Full practice management, backups & settings</span>
+                </div>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={adminPin}
+                  onChange={e => setAdminPin(e.target.value.replace(/\D/g, ''))}
+                  className="w-24 text-center font-mono tracking-widest text-base font-bold px-2 py-1.5 bg-white border border-stone-300 rounded-xl focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 focus:outline-hidden"
+                  required
+                />
               </div>
-              <input
-                type="password"
-                maxLength={4}
-                value={doctorPin}
-                onChange={e => setDoctorPin(e.target.value.replace(/\D/g, ''))}
-                className="w-24 text-center font-mono tracking-widest text-base font-bold px-2 py-1.5 bg-white border border-stone-300 rounded-xl focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 focus:outline-hidden"
-                required
-              />
-            </div>
 
-            <div className="flex items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-200/80">
-              <div>
-                <span className="text-xs font-bold text-stone-900 block">Receptionist PIN</span>
-                <span className="text-[11px] text-stone-500">Patient registration, token queue, OTC sales & billing</span>
+              <div className="flex items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-200/80">
+                <div>
+                  <span className="text-xs font-bold text-stone-900 block">Doctor PIN</span>
+                  <span className="text-[11px] text-stone-500">EMR clinical consultations, prescription generator</span>
+                </div>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={doctorPin}
+                  onChange={e => setDoctorPin(e.target.value.replace(/\D/g, ''))}
+                  className="w-24 text-center font-mono tracking-widest text-base font-bold px-2 py-1.5 bg-white border border-stone-300 rounded-xl focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 focus:outline-hidden"
+                  required
+                />
               </div>
-              <input
-                type="password"
-                maxLength={4}
-                value={receptionistPin}
-                onChange={e => setReceptionistPin(e.target.value.replace(/\D/g, ''))}
-                className="w-24 text-center font-mono tracking-widest text-base font-bold px-2 py-1.5 bg-white border border-stone-300 rounded-xl focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 focus:outline-hidden"
-                required
-              />
-            </div>
 
-            <div className="flex justify-end pt-3">
-              <button
-                type="submit"
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-indigo-900 bg-indigo-100 hover:bg-indigo-200 border border-indigo-200 rounded-xl transition-all shadow-2xs cursor-pointer"
-              >
-                <Save className="w-3.5 h-3.5 text-indigo-700" />
-                <span>Save Staff PIN Codes</span>
-              </button>
-            </div>
-          </form>
+              <div className="flex items-center justify-between p-3.5 bg-stone-50 rounded-xl border border-stone-200/80">
+                <div>
+                  <span className="text-xs font-bold text-stone-900 block">Receptionist PIN</span>
+                  <span className="text-[11px] text-stone-500">Patient registration, token queue, OTC sales & billing</span>
+                </div>
+                <input
+                  type="password"
+                  maxLength={4}
+                  value={receptionistPin}
+                  onChange={e => setReceptionistPin(e.target.value.replace(/\D/g, ''))}
+                  className="w-24 text-center font-mono tracking-widest text-base font-bold px-2 py-1.5 bg-white border border-stone-300 rounded-xl focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 focus:outline-hidden"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end pt-3">
+                <button
+                  type="submit"
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-indigo-900 bg-indigo-100 hover:bg-indigo-200 border border-indigo-200 rounded-xl transition-all shadow-2xs cursor-pointer"
+                >
+                  <Save className="w-3.5 h-3.5 text-indigo-700" />
+                  <span>Save Staff PIN Codes</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
@@ -1139,6 +1233,12 @@ export const PracticeSettingsView: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Staff Role Hierarchy Modal */}
+      <StaffManagementModal
+        isOpen={isStaffModalOpen}
+        onClose={() => setIsStaffModalOpen(false)}
+      />
 
     </div>
   );

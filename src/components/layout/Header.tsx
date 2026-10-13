@@ -4,6 +4,8 @@ import { UserRole } from '../../types/clinic';
 import { 
   Building2, 
   Lock, 
+  LogOut,
+  UserPlus,
   Cloud, 
   CloudOff, 
   RefreshCw, 
@@ -16,6 +18,7 @@ import {
   X,
   Search
 } from 'lucide-react';
+import { StaffManagementModal } from '../settings/StaffManagementModal';
 
 interface HeaderProps {
   onToggleMobileMenu?: () => void;
@@ -33,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
     currentStaff, 
     switchRole, 
     lockSession, 
+    logout,
     settings, 
     syncStatus, 
     lastSyncTime, 
@@ -40,6 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
   } = useClinic();
 
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleManualSync = async () => {
@@ -183,72 +188,75 @@ export const Header: React.FC<HeaderProps> = ({
                     className="fixed inset-0 z-40" 
                     onClick={() => setRoleMenuOpen(false)} 
                   />
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
-                    <div className="px-3 py-2 border-b border-slate-100">
-                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Switch Staff Station</p>
-                      <p className="text-xs text-slate-600 mt-0.5">Quick switch counter credentials</p>
+                  <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-100">
+                    <div className="px-4 py-2 border-b border-slate-100">
+                      <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Current Session</p>
+                      <p className="text-xs font-bold text-slate-800 mt-0.5">{currentStaff.name}</p>
+                      <p className="text-[11px] text-slate-500 capitalize">{role} Station</p>
                     </div>
 
-                    <button
-                      onClick={() => { switchRole('doctor'); setRoleMenuOpen(false); }}
-                      className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 ${role === 'doctor' ? 'font-semibold text-indigo-800 bg-indigo-50/60' : 'text-slate-700'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Stethoscope className="w-4 h-4 text-indigo-600" />
-                        <div>
-                          <p className="font-medium">Doctor Station</p>
-                          <p className="text-[11px] text-slate-400">{settings.doctorName}</p>
-                        </div>
+                    {/* Manage Staff Users (Admin & Doctor) */}
+                    {(role === 'admin' || role === 'doctor') && (
+                      <div className="p-1 border-b border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRoleMenuOpen(false);
+                            setIsStaffModalOpen(true);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-semibold text-indigo-900 bg-indigo-50/70 hover:bg-indigo-100 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <UserPlus className="w-4 h-4 text-indigo-600" />
+                            <span>
+                              {role === 'admin' ? 'Manage Staff (Add Doctor)' : 'Staff Users (Add Receptionist)'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded font-bold">
+                            {role === 'admin' ? 'Admin' : 'Doctor'}
+                          </span>
+                        </button>
                       </div>
-                      {role === 'doctor' && <span className="text-[10px] bg-indigo-100 text-indigo-800 border border-indigo-200 px-1.5 py-0.5 rounded">Active</span>}
-                    </button>
+                    )}
 
-                    <button
-                      onClick={() => { switchRole('receptionist'); setRoleMenuOpen(false); }}
-                      className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 ${role === 'receptionist' ? 'font-semibold text-blue-700 bg-blue-50/50' : 'text-slate-700'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Receipt className="w-4 h-4 text-blue-600" />
-                        <div>
-                          <p className="font-medium">Receptionist Desk</p>
-                          <p className="text-[11px] text-slate-400">Tokens, Queue & Billing</p>
-                        </div>
-                      </div>
-                      {role === 'receptionist' && <span className="text-[10px] bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded">Active</span>}
-                    </button>
-
-                    <button
-                      onClick={() => { switchRole('admin'); setRoleMenuOpen(false); }}
-                      className={`w-full px-3 py-2 text-left text-xs flex items-center justify-between hover:bg-slate-50 ${role === 'admin' ? 'font-semibold text-amber-700 bg-amber-50/50' : 'text-slate-700'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-amber-600" />
-                        <div>
-                          <p className="font-medium">Administrator</p>
-                          <p className="text-[11px] text-slate-400">Settings, Backups, Inventory</p>
-                        </div>
-                      </div>
-                      {role === 'admin' && <span className="text-[10px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded">Active</span>}
-                    </button>
+                    <div className="p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoleMenuOpen(false);
+                          logout();
+                        }}
+                        className="w-full px-3 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        <LogOut className="w-4 h-4 text-rose-500" />
+                        <span>Sign Out / Switch Station</span>
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
             </div>
 
-            {/* Quick Lock Button */}
+            {/* Prominent Sign Out / Lock Button */}
             <button
-              onClick={lockSession}
-              title="Lock station with staff PIN"
-              className="flex items-center gap-1.5 p-1.5 sm:px-3 sm:py-1.5 text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+              onClick={logout}
+              title="Sign out and return to Login Screen"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-rose-700 bg-slate-100 hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-xl transition-all cursor-pointer shadow-2xs"
             >
-              <Lock className="w-3.5 h-3.5 text-slate-500" />
-              <span className="hidden sm:inline">Lock</span>
+              <LogOut className="w-3.5 h-3.5 text-slate-500 hover:text-rose-600" />
+              <span className="hidden sm:inline">Sign Out</span>
             </button>
 
           </div>
 
         </div>
       </div>
+
+      {/* Staff Management & Role Creation Modal */}
+      <StaffManagementModal
+        isOpen={isStaffModalOpen}
+        onClose={() => setIsStaffModalOpen(false)}
+      />
     </header>
   );
 };
