@@ -233,6 +233,8 @@ export interface ClinicSettings {
   customDosageFrequencies: string[];
   customRemedies: string[];
   themeMode?: 'warm-stone' | 'aesthetic-slate' | 'soft-mineral' | 'rose-wellness';
+  lowStockThreshold?: number;
+  lowStockThresholdMode?: 'global' | 'item-specific' | 'combined';
   updatedAt: string;
 }
 

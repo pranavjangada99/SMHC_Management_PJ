@@ -30,14 +30,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setActiveTab, 
     role, 
     appointments, 
-    inventory 
+    inventory,
+    settings 
   } = useClinic();
 
   // Calculate live badge counts
   const today = new Date().toISOString().split('T')[0];
   const waitingCount = appointments.filter(a => a.date === today && a.status === 'waiting').length;
   const inConsultCount = appointments.filter(a => a.date === today && a.status === 'in-consultation').length;
-  const lowStockCount = inventory.filter(i => i.currentStock <= i.minReorderLevel).length;
+  
+  const configuredThreshold = settings.lowStockThreshold ?? 5;
+  const thresholdMode = settings.lowStockThresholdMode || 'global';
+  const lowStockCount = inventory.filter(i => {
+    if (thresholdMode === 'item-specific') return i.currentStock <= i.minReorderLevel;
+    if (thresholdMode === 'combined') return i.currentStock <= configuredThreshold || i.currentStock <= i.minReorderLevel;
+    return i.currentStock <= configuredThreshold;
+  }).length;
 
   const navItems: { id: NavigationTab; label: string; icon: React.ReactNode; allowedRoles: string[]; badge?: number | string; badgeColor?: string }[] = [
     {

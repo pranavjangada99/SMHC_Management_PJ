@@ -104,6 +104,8 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
     'Five Phos 6X'
   ],
   themeMode: 'warm-stone',
+  lowStockThreshold: 5,
+  lowStockThresholdMode: 'global',
   updatedAt: new Date().toISOString(),
 };
 

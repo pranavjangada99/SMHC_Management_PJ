@@ -19,7 +19,11 @@ import {
   ShieldCheck, 
   Tag, 
   RefreshCw,
-  Palette
+  Palette,
+  Package,
+  BellRing,
+  SlidersHorizontal,
+  AlertTriangle
 } from 'lucide-react';
 
 export const PracticeSettingsView: React.FC = () => {
@@ -36,11 +40,16 @@ export const PracticeSettingsView: React.FC = () => {
     addConsultationType, 
     removeConsultationType, 
     updateConsultationType,
-    triggerCloudSync 
+    triggerCloudSync,
+    inventory 
   } = useClinic();
 
   // Active sub-tab
-  const [activeSection, setActiveSection] = useState<'profile' | 'pricing' | 'clinical' | 'categories' | 'staff' | 'upi' | 'theme'>('profile');
+  const [activeSection, setActiveSection] = useState<'profile' | 'pricing' | 'clinical' | 'categories' | 'inventory' | 'staff' | 'upi' | 'theme'>('profile');
+
+  // Inventory & Stock Alert Threshold
+  const [lowStockThreshold, setLowStockThreshold] = useState<number>(settings.lowStockThreshold ?? 5);
+  const [lowStockThresholdMode, setLowStockThresholdMode] = useState<'global' | 'item-specific' | 'combined'>(settings.lowStockThresholdMode || 'global');
 
   // Clinic profile form
   const [clinicName, setClinicName] = useState(settings.clinicName || '');
@@ -142,6 +151,15 @@ export const PracticeSettingsView: React.FC = () => {
     addCustomCategory(newCategoryInput.trim());
     setNewCategoryInput('');
     showSaveSuccess('Category added!');
+  };
+
+  const handleSaveInventorySettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateSettings({
+      lowStockThreshold: Number(lowStockThreshold),
+      lowStockThresholdMode: lowStockThresholdMode,
+    });
+    showSaveSuccess('Low stock alert threshold and dispensary rules updated!');
   };
 
   const handleSaveClinicalAdvice = (e: React.FormEvent) => {
@@ -256,6 +274,18 @@ export const PracticeSettingsView: React.FC = () => {
           >
             <Tag className="w-3.5 h-3.5" />
             <span>Cosmetic & Product Categories</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSection('inventory')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+              activeSection === 'inventory'
+                ? 'bg-indigo-100 text-indigo-900 border border-indigo-200/90 font-semibold shadow-2xs'
+                : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
+            }`}
+          >
+            <Package className="w-3.5 h-3.5" />
+            <span>Stock Alerts & Dispensary</span>
           </button>
 
           <button
@@ -635,6 +665,140 @@ export const PracticeSettingsView: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* SECTION: STOCK ALERTS & DISPENSARY THRESHOLD */}
+      {activeSection === 'inventory' && (
+        <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-xs space-y-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-indigo-700" />
+              <h3 className="text-base font-bold text-stone-900">Dispensary Stock Alerts & Safety Thresholds</h3>
+            </div>
+            <p className="text-xs text-stone-500 mt-1">
+              Configure clinic-wide inventory safety thresholds. When medicine or cosmetic stocks reach or fall below this limit, notification badges and visual highlights are triggered in the Inventory View and navigation bar.
+            </p>
+          </div>
+
+          <form onSubmit={handleSaveInventorySettings} className="space-y-6">
+            <div className="p-4 bg-amber-50/50 rounded-xl border border-amber-200/80 space-y-4">
+              <div className="flex items-center gap-2">
+                <BellRing className="w-4 h-4 text-amber-700" />
+                <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider">
+                  Configurable Stock Threshold Rules
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                    Default Alert Threshold (Units)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={lowStockThreshold}
+                      onChange={e => setLowStockThreshold(Math.max(1, Number(e.target.value) || 1))}
+                      className="w-32 px-3 py-2 text-sm font-mono font-bold border border-stone-300 rounded-xl bg-white text-stone-900 focus:outline-hidden focus:ring-1 focus:ring-indigo-400"
+                    />
+                    <div className="flex flex-wrap gap-1">
+                      {[2, 3, 5, 8, 10, 15].map(preset => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setLowStockThreshold(preset)}
+                          className={`px-2 py-1 text-xs rounded-lg font-mono font-medium transition-colors cursor-pointer ${
+                            lowStockThreshold === preset
+                              ? 'bg-amber-600 text-white font-bold'
+                              : 'bg-white text-stone-700 border border-stone-200 hover:bg-stone-100'
+                          }`}
+                        >
+                          ≤ {preset}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-stone-500 mt-1.5">
+                    Medicines with stock at or below this value will trigger the notification badge and row highlights.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+                    Alert Evaluation Mode
+                  </label>
+                  <select
+                    value={lowStockThresholdMode}
+                    onChange={e => setLowStockThresholdMode(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl bg-white text-stone-800 focus:outline-hidden"
+                  >
+                    <option value="global">Global Stock Limit (Stock ≤ {lowStockThreshold} units)</option>
+                    <option value="item-specific">Per-Item Reorder Level (Item's Own Min Reorder Level)</option>
+                    <option value="combined">Combined Rule (Stock ≤ {lowStockThreshold} OR Item Reorder Level)</option>
+                  </select>
+                  <p className="text-[11px] text-stone-500 mt-1.5">
+                    Select how the system determines whether a medicine is running low.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Inventory Preview */}
+            <div className="p-4 bg-stone-50 rounded-xl border border-stone-200">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <span className="text-xs font-bold text-stone-800">Live Threshold Preview</span>
+                </div>
+                {(() => {
+                  const previewCount = inventory.filter(i => {
+                    if (lowStockThresholdMode === 'item-specific') return i.currentStock <= i.minReorderLevel;
+                    if (lowStockThresholdMode === 'combined') return i.currentStock <= lowStockThreshold || i.currentStock <= i.minReorderLevel;
+                    return i.currentStock <= lowStockThreshold;
+                  }).length;
+
+                  return (
+                    <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${
+                      previewCount > 0 ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {previewCount} items currently trigger alert
+                    </span>
+                  );
+                })()}
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {inventory.filter(i => {
+                  if (lowStockThresholdMode === 'item-specific') return i.currentStock <= i.minReorderLevel;
+                  if (lowStockThresholdMode === 'combined') return i.currentStock <= lowStockThreshold || i.currentStock <= i.minReorderLevel;
+                  return i.currentStock <= lowStockThreshold;
+                }).map(i => (
+                  <span
+                    key={i.id}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-white text-stone-800 border border-stone-200 shadow-2xs"
+                  >
+                    <span>{i.name}</span>
+                    <span className="font-mono text-rose-600 font-bold bg-rose-50 px-1 rounded text-[10px]">
+                      {i.currentStock} left
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-stone-100">
+              <button
+                type="submit"
+                className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-all cursor-pointer"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>Save Dispensary Thresholds</span>
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
