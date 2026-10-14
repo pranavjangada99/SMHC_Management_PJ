@@ -47,7 +47,7 @@ INSERT OR IGNORE INTO clinic_settings (
   500,
   300,
   '₹',
-  '{"admin":"1111","doctor":"2222","receptionist":"3333"}',
+  '{"admin":"DreamProject09"}',
   'homoeocare@icici',
   'HomoeoCare Health Centre',
   '27AABCH1234F1Z8',
@@ -64,12 +64,10 @@ INSERT OR IGNORE INTO clinic_settings (
   datetime('now')
 );
 
--- Seed Staff Profiles
-INSERT OR IGNORE INTO staff_users (id, role, name, title, email, created_at)
+-- Seed Staff Profiles: Administrator account only (Doctor & Staff accounts created via UI)
+INSERT OR IGNORE INTO staff_users (id, role, name, title, email, pin, created_at)
 VALUES 
-  ('staff-admin', 'admin', 'Clinic Administrator', 'Practice & Financial Manager', 'admin@homoeocareclinic.in', datetime('now')),
-  ('staff-doctor', 'doctor', 'Dr. Pranav J.', 'Chief Homoeopathic Physician', 'doctor@homoeocareclinic.in', datetime('now')),
-  ('staff-receptionist', 'receptionist', 'Sunita Rao', 'Front Desk & Patient Coordinator', 'frontdesk@homoeocareclinic.in', datetime('now'));
+  ('staff-admin', 'admin', 'Clinic Administrator', 'Practice & System Control', 'admin@homoeocareclinic.in', 'DreamProject09', datetime('now'));
 
 
 

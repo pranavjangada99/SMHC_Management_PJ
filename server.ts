@@ -42,16 +42,23 @@ try {
 
   // Purge any dummy testing data so database starts completely clean
   sqlite.exec(`
-    DELETE FROM inventory WHERE id LIKE 'inv-%';
+    DELETE FROM inventory;
     DELETE FROM patients;
     DELETE FROM appointments;
     DELETE FROM consultations;
     DELETE FROM prescriptions;
     DELETE FROM invoices;
     DELETE FROM invoice_items;
+
+    -- Ensure single admin user with DreamProject09 password
+    DELETE FROM staff_users WHERE id != 'staff-admin';
+    INSERT OR REPLACE INTO staff_users (id, role, name, title, email, pin, status, created_by_role, created_at)
+    VALUES ('staff-admin', 'admin', 'Clinic Administrator', 'Practice & System Control', 'admin@homoeocareclinic.in', 'DreamProject09', 'active', 'admin', datetime('now'));
+
+    UPDATE clinic_settings SET staff_pins = '{"admin":"DreamProject09"}' WHERE id = 'active';
   `);
 
-  console.log('✓ SQLite / Cloudflare D1 local database initialized cleanly at', dbPath);
+  console.log('✓ SQLite / Cloudflare D1 local database initialized cleanly with single Admin user at', dbPath);
 } catch (err) {
   console.error('Error applying SQL migrations:', err);
 }
@@ -68,7 +75,7 @@ function getAuthContext(req: express.Request): AuthContext {
   const authHeader = (req.headers['authorization'] as string) || '';
 
   // Get staff pins from database
-  let staffPins: Record<string, string> = { admin: '1111', doctor: '2222', receptionist: '3333' };
+  let staffPins: Record<string, string> = { admin: 'DreamProject09' };
   try {
     const row = sqlite.prepare('SELECT staff_pins FROM clinic_settings WHERE id = ?').get('active') as { staff_pins?: string } | undefined;
     if (row?.staff_pins) {
@@ -245,32 +252,38 @@ app.put('/api/settings', (req, res) => {
 // Staff Authentication Login
 app.post('/api/auth/login', (req, res) => {
   try {
-    const { role, pin } = req.body;
-    if (!role || !pin) {
-      return res.status(400).json({ error: 'Role and PIN are required' });
+    const { role, pin, password } = req.body;
+    const cred = pin || password;
+    if (!role || !cred) {
+      return res.status(400).json({ error: 'Station and password are required' });
     }
 
-    let staffPins: Record<string, string> = { admin: '1111', doctor: '2222', receptionist: '3333' };
+    let staffPins: Record<string, string> = { admin: 'DreamProject09' };
     try {
       const row = sqlite.prepare('SELECT staff_pins FROM clinic_settings WHERE id = ?').get('active') as { staff_pins?: string } | undefined;
       if (row?.staff_pins) staffPins = JSON.parse(row.staff_pins);
     } catch {}
 
     const staffUser = sqlite.prepare('SELECT * FROM staff_users WHERE role = ? AND (pin = ? OR ? = ?) LIMIT 1')
-      .get(role, pin, pin, staffPins[role] || staffPins.admin || '1111') as any;
+      .get(role, cred, cred, staffPins[role] || (role === 'admin' ? staffPins.admin : '')) as any;
 
-    if (pin === staffPins[role] || pin === staffPins.admin || staffUser) {
-      const user = staffUser || {
-        id: `staff-${role}`,
-        role,
-        name: role === 'admin' ? 'Clinic Administrator' : role === 'doctor' ? 'Dr. Pranav J.' : 'Sunita Rao',
-        title: role === 'admin' ? 'Practice & Financial Manager' : role === 'doctor' ? 'Chief Homoeopathic Physician' : 'Front Desk & Patient Coordinator',
-        email: `${role}@homoeocareclinic.in`
+    if (staffUser) {
+      return res.json({ success: true, user: staffUser });
+    }
+
+    if (role === 'admin' && (cred === staffPins.admin || cred === 'DreamProject09')) {
+      const adminUser = sqlite.prepare('SELECT * FROM staff_users WHERE role = "admin" LIMIT 1').get() as any;
+      const user = adminUser || {
+        id: 'staff-admin',
+        role: 'admin',
+        name: 'Clinic Administrator',
+        title: 'Practice & System Control',
+        email: 'admin@homoeocareclinic.in'
       };
       return res.json({ success: true, user });
     }
 
-    return res.status(401).json({ error: 'Invalid security PIN for selected role' });
+    return res.status(401).json({ error: 'Invalid password for selected station.' });
   } catch (err) {
     return res.status(500).json({ error: String(err) });
   }
@@ -292,7 +305,7 @@ app.get('/api/staff-users', (req, res) => {
       status: u.status || 'active',
       createdByRole: u.created_by_role || 'admin',
       createdAt: u.created_at,
-      pin: auth.role === 'admin' ? u.pin : (auth.role === 'doctor' && u.role === 'receptionist' ? u.pin : '****')
+      pin: auth.role === 'admin' ? u.pin : (auth.role === 'doctor' && u.role === 'receptionist' ? u.pin : '••••••••')
     }));
     res.json(users);
   } catch (err) {
@@ -307,7 +320,7 @@ app.post('/api/staff-users', (req, res) => {
       return res.status(403).json({ error: 'Forbidden: Receptionists cannot create staff users' });
     }
 
-    const { role, name, title, email, phone, pin } = req.body;
+    const { role, name, title, email, phone, pin, password } = req.body;
     if (!name || !role) {
       return res.status(400).json({ error: 'Name and role are required' });
     }
@@ -319,7 +332,7 @@ app.post('/api/staff-users', (req, res) => {
     }
 
     const id = `staff-${role.slice(0, 3)}-${Date.now().toString(36)}`;
-    const defaultPin = pin || (role === 'doctor' ? '2222' : '3333');
+    const userPassword = pin || password || (role === 'doctor' ? 'Doc#2026' : 'Front#2026');
     const now = new Date().toISOString();
 
     sqlite.prepare(`
@@ -332,7 +345,7 @@ app.post('/api/staff-users', (req, res) => {
       title || (role === 'doctor' ? 'Associate Homoeopathic Physician' : 'Front Desk Coordinator'),
       email || null,
       phone || null,
-      defaultPin,
+      userPassword,
       auth.role,
       now
     );
@@ -344,7 +357,7 @@ app.post('/api/staff-users', (req, res) => {
       title,
       email,
       phone,
-      pin: defaultPin,
+      pin: userPassword,
       status: 'active',
       createdByRole: auth.role,
       createdAt: now

@@ -102,8 +102,12 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   };
 
   const handleGeneratePin = () => {
-    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
-    setPin(randomPin);
+    const adjectives = ['Care', 'Safe', 'Health', 'Prime', 'Vital'];
+    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const roleTag = activeTab === 'add-doctor' ? 'Doc' : 'Front';
+    const num = Math.floor(10 + Math.random() * 90);
+    const generated = `${adj}${roleTag}#${num}`;
+    setPin(generated);
     setShowPin(true);
   };
 
@@ -130,8 +134,8 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
       return;
     }
 
-    if (!pin || pin.length !== 4) {
-      setErrorMsg('A valid 4-digit security PIN is required.');
+    if (!pin || pin.trim().length < 4) {
+      setErrorMsg('Password must be at least 4 characters.');
       return;
     }
 
@@ -164,7 +168,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
         pin: pin.trim(),
       });
 
-      setSuccessMsg(`Created ${name.trim()} (${targetRole === 'doctor' ? 'Doctor' : 'Receptionist'}) with PIN: ${pin.trim()}`);
+      setSuccessMsg(`Created ${name.trim()} (${targetRole === 'doctor' ? 'Doctor' : 'Receptionist'}) with password: ${pin.trim()}`);
       setName('');
       setTitle('');
       setEmail('');
@@ -404,55 +408,43 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                     </div>
                   </div>
 
-                  {/* 4-Digit Security PIN */}
+                  {/* Station Password */}
                   <div className="sm:col-span-2 bg-stone-50 rounded-2xl border border-stone-200/90 p-4">
                     <div className="flex items-center justify-between mb-2">
                       <label className="block text-xs font-bold text-stone-900">
-                        4-Digit Login PIN *
+                        Station Password *
                       </label>
                       <button
                         type="button"
                         onClick={handleGeneratePin}
-                        className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1 rounded-lg border border-indigo-200/60 transition-colors cursor-pointer"
+                        className="flex items-center gap-1.5 text-xs font-semibold text-stone-700 hover:text-stone-900 bg-white hover:bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-300 transition-colors cursor-pointer"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Generate Random PIN</span>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Generate Password</span>
                       </button>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="relative">
-                        <input
-                          type={showPin ? 'text' : 'password'}
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          maxLength={4}
-                          value={pin}
-                          onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
-                          placeholder="••••"
-                          className="w-36 px-4 py-2.5 text-lg font-mono tracking-widest font-bold bg-white border border-stone-300 rounded-xl focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden text-center text-stone-900"
-                          required
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPin(!showPin)}
-                          className="absolute right-2.5 top-3 text-stone-400 hover:text-stone-700 cursor-pointer"
-                          title={showPin ? 'Hide PIN' : 'Show PIN'}
-                        >
-                          {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-
-                      <div className="text-xs text-stone-500 flex-1 min-w-[200px]">
-                        {pin.length === 4 ? (
-                          <span className="text-emerald-700 font-semibold flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> 4 digits ready for login
-                          </span>
-                        ) : (
-                          <span>Enter exactly 4 digits for station sign-in.</span>
-                        )}
-                      </div>
+                    <div className="relative">
+                      <input
+                        type={showPin ? 'text' : 'password'}
+                        value={pin}
+                        onChange={e => setPin(e.target.value)}
+                        placeholder="Enter station password"
+                        className="w-full pl-3.5 pr-10 py-2.5 text-sm bg-white border border-stone-300 rounded-xl focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden text-stone-900"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPin(!showPin)}
+                        className="absolute right-3 top-3 text-stone-400 hover:text-stone-700 cursor-pointer"
+                        title={showPin ? 'Hide password' : 'Show password'}
+                      >
+                        {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
+                    <p className="text-[11px] text-stone-500 mt-1.5">
+                      Used by this staff member to sign in to their clinical station.
+                    </p>
                   </div>
                 </div>
 
@@ -483,7 +475,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting || pin.length !== 4 || !name.trim()}
+                    disabled={isSubmitting || pin.trim().length < 4 || !name.trim()}
                     className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-xs cursor-pointer ${
                       activeTab === 'add-doctor'
                         ? 'bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50'
@@ -597,18 +589,18 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
 
                         {/* Right side controls: PIN view & Delete */}
                         <div className="flex items-center gap-2 self-end sm:self-center shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100 w-full sm:w-auto justify-between sm:justify-end">
-                          {/* PIN viewer for authorized users */}
-                          {(role === 'admin' || (role === 'doctor' && isRec)) && u.pin && u.pin !== '****' ? (
-                            <div className="flex items-center gap-1 bg-stone-100 px-2.5 py-1 rounded-xl border border-stone-200">
-                              <span className="text-[11px] font-bold text-stone-500 mr-1">PIN:</span>
-                              <span className="text-xs font-mono font-bold text-stone-900 tracking-wider">
-                                {isPinRevealed ? u.pin : '••••'}
+                          {/* Password viewer for authorized users */}
+                          {(role === 'admin' || (role === 'doctor' && isRec)) && u.pin && u.pin !== '••••••••' ? (
+                            <div className="flex items-center gap-1.5 bg-stone-100 px-2.5 py-1.5 rounded-xl border border-stone-200">
+                              <span className="text-[11px] font-semibold text-stone-500 mr-0.5">Password:</span>
+                              <span className="text-xs font-mono font-medium text-stone-900">
+                                {isPinRevealed ? u.pin : '••••••••'}
                               </span>
                               <button
                                 type="button"
                                 onClick={() => togglePinReveal(u.id)}
                                 className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer ml-1"
-                                title={isPinRevealed ? 'Hide PIN' : 'Show PIN'}
+                                title={isPinRevealed ? 'Hide Password' : 'Show Password'}
                               >
                                 {isPinRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                               </button>
@@ -616,14 +608,14 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                                 type="button"
                                 onClick={() => handleCopyPin(u.id, u.pin!)}
                                 className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
-                                title="Copy PIN"
+                                title="Copy Password"
                               >
                                 {copiedId === u.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs font-mono text-stone-500 bg-stone-100 px-2.5 py-1 rounded-xl border border-stone-200">
-                              PIN: ••••
+                            <span className="text-xs font-mono text-stone-500 bg-stone-100 px-2.5 py-1.5 rounded-xl border border-stone-200">
+                              Password: ••••••••
                             </span>
                           )}
 

@@ -161,20 +161,20 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     admin: {
       role: 'admin',
       name: 'Clinic Administrator',
-      title: 'Practice & Financial Manager',
-      defaultPin: settings.staffPins?.admin || '1111',
+      title: 'Practice & System Control',
+      defaultPin: settings.staffPins?.admin || 'DreamProject09',
     },
     doctor: {
       role: 'doctor',
-      name: settings.doctorName || 'Dr. Pranav J.',
-      title: 'Chief Homoeopathic Physician',
-      defaultPin: settings.staffPins?.doctor || '2222',
+      name: settings.doctorName || 'Doctor',
+      title: 'Homoeopathic Physician',
+      defaultPin: settings.staffPins?.doctor || '',
     },
     receptionist: {
       role: 'receptionist',
-      name: 'Sunita Rao',
-      title: 'Front Desk & Patient Coordinator',
-      defaultPin: settings.staffPins?.receptionist || '3333',
+      name: 'Front Desk',
+      title: 'Patient Desk Coordinator',
+      defaultPin: settings.staffPins?.receptionist || '',
     },
   };
 
@@ -322,15 +322,15 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     }
   };
 
-  // PIN Unlock / Login handler
-  const unlockWithPin = async (pin: string, targetRole?: UserRole): Promise<boolean> => {
+  // Password Unlock / Login handler
+  const unlockWithPin = async (password: string, targetRole?: UserRole): Promise<boolean> => {
     const roleToCheck = targetRole || role || 'admin';
-    const requiredPin = settings.staffPins?.[roleToCheck] || staffProfiles[roleToCheck]?.defaultPin || (roleToCheck === 'admin' ? '1111' : roleToCheck === 'doctor' ? '2222' : '3333');
-    const masterAdminPin = settings.staffPins?.admin || '1111';
+    const requiredPin = settings.staffPins?.[roleToCheck];
+    const masterAdminPin = settings.staffPins?.admin || 'DreamProject09';
 
-    // Check if entered PIN matches role settings or individual staff user PIN
-    const matchingStaffUser = staffUsers.find(u => u.role === roleToCheck && u.pin === pin);
-    const isMatch = (pin === requiredPin || pin === masterAdminPin || !!matchingStaffUser);
+    // Check if entered credentials match role settings or individual staff user password
+    const matchingStaffUser = staffUsers.find(u => u.role === roleToCheck && u.pin === password);
+    const isMatch = (requiredPin && password === requiredPin) || (roleToCheck === 'admin' && password === masterAdminPin) || !!matchingStaffUser;
 
     if (isMatch) {
       if (targetRole) {
@@ -343,14 +343,14 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         name: matchingStaffUser ? matchingStaffUser.name : staffProfiles[roleToCheck]?.name || 'Staff User',
         title: matchingStaffUser ? matchingStaffUser.title : staffProfiles[roleToCheck]?.title || ''
       });
-      localStorage.setItem('homoeocare_staff_pin', pin);
+      localStorage.setItem('homoeocare_staff_pin', password);
       loadStaffUsers();
       return true;
     }
 
-    // Try backend verification against D1
+    // Try backend verification against SQLite / D1
     try {
-      const res = await clinicApi.loginStaff(roleToCheck, pin);
+      const res = await clinicApi.loginStaff(roleToCheck, password);
       if (res.success && res.user) {
         setRole(res.user.role);
         setIsLocked(false);
@@ -360,7 +360,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
           name: res.user.name,
           title: res.user.title
         });
-        localStorage.setItem('homoeocare_staff_pin', pin);
+        localStorage.setItem('homoeocare_staff_pin', password);
         loadStaffUsers();
         return true;
       }

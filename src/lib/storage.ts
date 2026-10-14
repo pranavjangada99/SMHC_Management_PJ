@@ -35,9 +35,9 @@ export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   followupFeeINR: 300,
   currencySymbol: '₹',
   staffPins: {
-    admin: '1111',
-    doctor: '2222',
-    receptionist: '3333',
+    admin: 'DreamProject09',
+    doctor: '',
+    receptionist: '',
   },
   upiId: 'homoeocare@icici',
   upiPayeeName: 'HomoeoCare Health Centre',

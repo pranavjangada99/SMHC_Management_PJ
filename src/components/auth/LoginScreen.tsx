@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useClinic } from '../../context/ClinicContext';
 import { UserRole } from '../../types/clinic';
 import { 
@@ -7,33 +7,32 @@ import {
   Stethoscope, 
   Receipt, 
   Lock, 
-  KeyRound, 
   AlertCircle, 
   ArrowRight, 
-  Delete,
-  Eye,
-  EyeOff
+  Eye, 
+  EyeOff,
+  UserCheck
 } from 'lucide-react';
 
 export const LoginScreen: React.FC = () => {
   const { 
     settings, 
-    staffProfiles, 
     staffUsers, 
     unlockWithPin 
   } = useClinic();
 
   const [selectedRole, setSelectedRole] = useState<UserRole>('admin');
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
-  const [pin, setPin] = useState('');
-  const [showPin, setShowPin] = useState(false);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isShaking, setIsShaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync staff user selection when role changes
+  // Sync staff selection when role changes
   useEffect(() => {
-    setPin('');
+    setPassword('');
     setErrorMsg('');
     const matchingStaff = staffUsers.filter(u => u.role === selectedRole);
     if (matchingStaff.length > 0) {
@@ -41,64 +40,46 @@ export const LoginScreen: React.FC = () => {
     } else {
       setSelectedStaffId(`staff-${selectedRole}`);
     }
+    // Focus password input
+    setTimeout(() => {
+      passwordInputRef.current?.focus();
+    }, 50);
   }, [selectedRole, staffUsers]);
 
-  const handleKeyPress = (digit: string) => {
-    if (pin.length < 4) {
-      const nextPin = pin + digit;
-      setPin(nextPin);
-      setErrorMsg('');
-      if (nextPin.length === 4) {
-        attemptLogin(nextPin, selectedRole);
-      }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!password.trim()) {
+      setErrorMsg('Please enter your password.');
+      passwordInputRef.current?.focus();
+      return;
     }
-  };
 
-  const handleDelete = () => {
-    setPin(prev => prev.slice(0, -1));
-    setErrorMsg('');
-  };
-
-  const handleClear = () => {
-    setPin('');
-    setErrorMsg('');
-  };
-
-  const attemptLogin = async (enteredPin: string, targetRole: UserRole) => {
-    if (enteredPin.length < 4) return;
     setIsLoading(true);
     setErrorMsg('');
 
     try {
-      const success = await unlockWithPin(enteredPin, targetRole);
+      const success = await unlockWithPin(password.trim(), selectedRole);
       if (!success) {
-        setErrorMsg('Invalid access code.');
+        setErrorMsg('Invalid password.');
         setIsShaking(true);
         setTimeout(() => setIsShaking(false), 500);
-        setPin('');
+        setPassword('');
+        passwordInputRef.current?.focus();
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Authentication failed.';
       setErrorMsg(message);
       setIsShaking(true);
       setTimeout(() => setIsShaking(false), 500);
-      setPin('');
+      setPassword('');
+      passwordInputRef.current?.focus();
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key >= '0' && e.key <= '9') {
-      handleKeyPress(e.key);
-    } else if (e.key === 'Backspace') {
-      handleDelete();
-    } else if (e.key === 'Enter' && pin.length >= 4) {
-      attemptLogin(pin, selectedRole);
-    }
-  };
-
   const currentRoleStaffList = staffUsers.filter(u => u.role === selectedRole);
+  const hasAccountsForStation = selectedRole === 'admin' || currentRoleStaffList.length > 0;
 
   const getRoleBadge = (r: UserRole) => {
     switch (r) {
@@ -107,8 +88,8 @@ export const LoginScreen: React.FC = () => {
           title: 'Administrator',
           desc: 'Practice & System Control',
           icon: ShieldCheck,
-          activeBg: 'bg-stone-900 text-white border-stone-900',
-          inactiveBg: 'bg-stone-50/80 text-stone-700 border-stone-200 hover:bg-stone-100',
+          activeBg: 'bg-stone-900 text-white border-stone-900 shadow-sm',
+          inactiveBg: 'bg-stone-50/80 text-stone-700 border-stone-200 hover:bg-stone-100 hover:border-stone-300',
           iconBg: 'bg-stone-800 text-stone-200'
         };
       case 'doctor':
@@ -116,8 +97,8 @@ export const LoginScreen: React.FC = () => {
           title: 'Practitioner',
           desc: 'Clinical EMR & Prescriptions',
           icon: Stethoscope,
-          activeBg: 'bg-teal-900 text-white border-teal-900',
-          inactiveBg: 'bg-stone-50/80 text-stone-700 border-stone-200 hover:bg-stone-100',
+          activeBg: 'bg-teal-900 text-white border-teal-900 shadow-sm',
+          inactiveBg: 'bg-stone-50/80 text-stone-700 border-stone-200 hover:bg-stone-100 hover:border-stone-300',
           iconBg: 'bg-teal-800 text-teal-100'
         };
       case 'receptionist':
@@ -125,20 +106,16 @@ export const LoginScreen: React.FC = () => {
           title: 'Front Desk',
           desc: 'Queue & Billing Desk',
           icon: Receipt,
-          activeBg: 'bg-slate-900 text-white border-slate-900',
-          inactiveBg: 'bg-stone-50/80 text-stone-700 border-stone-200 hover:bg-stone-100',
+          activeBg: 'bg-slate-900 text-white border-slate-900 shadow-sm',
+          inactiveBg: 'bg-stone-50/80 text-stone-700 border-stone-200 hover:bg-stone-100 hover:border-stone-300',
           iconBg: 'bg-slate-800 text-slate-200'
         };
     }
   };
 
   return (
-    <div 
-      className="min-h-screen bg-stone-100/70 flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 font-sans select-none"
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-    >
-      <div className="w-full max-w-lg">
+    <div className="min-h-screen bg-stone-100/70 flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 font-sans">
+      <div className="w-full max-w-md">
         
         {/* Clinic Identity */}
         <div className="text-center mb-6">
@@ -146,7 +123,7 @@ export const LoginScreen: React.FC = () => {
             <Building2 className="w-6 h-6 stroke-[1.75]" />
           </div>
           <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-stone-900">
-            {settings.clinicName || 'Nayiva SMHC'}
+            {settings.clinicName || 'HomoeoCare Health Centre'}
           </h1>
           <p className="text-xs text-stone-500 mt-1">
             Clinical Practice Station
@@ -159,7 +136,7 @@ export const LoginScreen: React.FC = () => {
             isShaking ? 'animate-shake' : ''
           }`}
         >
-          {/* Role Segmented Selector */}
+          {/* Station Selector */}
           <div className="p-4 sm:p-5 bg-stone-50/60 border-b border-stone-200/80">
             <label className="text-[11px] font-semibold tracking-wider uppercase text-stone-500 block mb-2.5">
               Select Station
@@ -177,7 +154,7 @@ export const LoginScreen: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setSelectedRole(r);
-                      setPin('');
+                      setPassword('');
                       setErrorMsg('');
                     }}
                     className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between min-h-[96px] ${
@@ -200,7 +177,7 @@ export const LoginScreen: React.FC = () => {
               })}
             </div>
 
-            {/* Staff Selector if multiple accounts present */}
+            {/* Profile Selector if multiple accounts exist */}
             {currentRoleStaffList.length > 1 && (
               <div className="mt-3 pt-3 border-t border-stone-200/60">
                 <label className="text-[11px] font-medium text-stone-600 block mb-1">
@@ -221,124 +198,102 @@ export const LoginScreen: React.FC = () => {
             )}
           </div>
 
-          {/* Passcode Entry Zone */}
+          {/* Password Entry Zone */}
           <div className="p-6 sm:p-7">
-            <div className="text-center mb-5">
-              <div className="inline-flex items-center gap-1.5 text-xs font-medium text-stone-600 mb-2">
-                <KeyRound className="w-3.5 h-3.5 text-stone-400" />
-                <span>Enter 4-Digit Passcode</span>
+            {!hasAccountsForStation ? (
+              <div className="py-6 px-4 bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-center">
+                <UserCheck className="w-8 h-8 text-stone-400 mx-auto mb-2" />
+                <h3 className="text-xs font-semibold text-stone-800">
+                  No account configured
+                </h3>
+                <p className="text-[11px] text-stone-500 mt-1 max-w-xs mx-auto">
+                  Please sign in as Administrator to create accounts for this station.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole('admin')}
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-stone-900 hover:text-stone-700 bg-white px-3 py-1.5 rounded-xl border border-stone-300 shadow-2xs cursor-pointer transition-colors"
+                >
+                  Switch to Administrator
+                </button>
               </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold text-stone-700">
+                      Password
+                    </label>
+                    <span className="text-[10px] text-stone-400 uppercase tracking-wider">
+                      {selectedRole}
+                    </span>
+                  </div>
 
-              {/* Masked PIN Indicator */}
-              <div className="flex items-center justify-center gap-3 my-3">
-                {[0, 1, 2, 3].map(idx => {
-                  const isFilled = pin.length > idx;
-                  return (
-                    <div
-                      key={idx}
-                      className={`w-11 h-12 rounded-2xl flex items-center justify-center text-lg font-semibold font-mono transition-all border ${
-                        isFilled
-                          ? 'bg-stone-900 text-white border-stone-900 shadow-xs'
-                          : 'bg-stone-50 text-transparent border-stone-200'
-                      }`}
-                    >
-                      {isFilled ? (showPin ? pin[idx] : '•') : ''}
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-stone-400">
+                      <Lock className="w-4 h-4" />
                     </div>
-                  );
-                })}
-              </div>
 
-              {/* Show/Hide Toggle & Status */}
-              <div className="flex items-center justify-center gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPin(!showPin)}
-                  className="inline-flex items-center gap-1 text-[11px] text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
-                >
-                  {showPin ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                  <span>{showPin ? 'Hide' : 'Show'}</span>
-                </button>
-              </div>
+                    <input
+                      ref={passwordInputRef}
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={e => {
+                        setPassword(e.target.value);
+                        if (errorMsg) setErrorMsg('');
+                      }}
+                      placeholder="Enter station password"
+                      autoComplete="current-password"
+                      className="w-full pl-10 pr-10 py-2.5 text-sm bg-stone-50/50 border border-stone-300 rounded-2xl focus:bg-white focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden text-stone-900 transition-all placeholder:text-stone-400"
+                    />
 
-              {/* Error Message */}
-              {errorMsg && (
-                <div className="flex items-center justify-center gap-1.5 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 py-1.5 px-3 rounded-xl max-w-xs mx-auto mt-3">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  <span>{errorMsg}</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-stone-400 hover:text-stone-700 cursor-pointer transition-colors"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
 
-            {/* Numeric Keypad */}
-            <div className="max-w-xs mx-auto grid grid-cols-3 gap-2 sm:gap-2.5 mb-5">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (
+                {/* Error Message */}
+                {errorMsg && (
+                  <div className="flex items-center gap-2 text-xs font-medium text-rose-700 bg-rose-50 border border-rose-200 py-2 px-3 rounded-xl animate-fade-in">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{errorMsg}</span>
+                  </div>
+                )}
+
+                {/* Submit Action */}
                 <button
-                  key={num}
-                  type="button"
-                  onClick={() => handleKeyPress(num)}
-                  disabled={isLoading}
-                  className="h-11 rounded-2xl bg-stone-50/80 hover:bg-stone-100 active:bg-stone-200 text-stone-800 font-semibold text-base border border-stone-200/80 transition-colors flex items-center justify-center cursor-pointer"
+                  type="submit"
+                  disabled={isLoading || !password.trim()}
+                  className={`w-full py-3 px-4 rounded-2xl font-semibold text-xs tracking-wide uppercase flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    password.trim() && !isLoading
+                      ? 'bg-stone-900 hover:bg-stone-800 text-white shadow-sm active:scale-[0.99]'
+                      : 'bg-stone-100 text-stone-400 cursor-not-allowed border border-stone-200/60'
+                  }`}
                 >
-                  {num}
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <span>Sign In</span>
+                      <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
+                    </>
+                  )}
                 </button>
-              ))}
-
-              <button
-                type="button"
-                onClick={handleClear}
-                disabled={isLoading || pin.length === 0}
-                className="h-11 rounded-2xl bg-stone-100/80 hover:bg-stone-200/80 text-stone-600 font-medium text-xs border border-stone-200/80 transition-colors flex items-center justify-center cursor-pointer"
-              >
-                Clear
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleKeyPress('0')}
-                disabled={isLoading}
-                className="h-11 rounded-2xl bg-stone-50/80 hover:bg-stone-100 active:bg-stone-200 text-stone-800 font-semibold text-base border border-stone-200/80 transition-colors flex items-center justify-center cursor-pointer"
-              >
-                0
-              </button>
-
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={isLoading || pin.length === 0}
-                className="h-11 rounded-2xl bg-stone-100/80 hover:bg-stone-200/80 text-stone-600 font-medium text-xs border border-stone-200/80 transition-colors flex items-center justify-center cursor-pointer"
-                aria-label="Delete"
-              >
-                <Delete className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Submit Action */}
-            <button
-              type="button"
-              onClick={() => attemptLogin(pin, selectedRole)}
-              disabled={isLoading || pin.length < 4}
-              className={`w-full py-3 px-4 rounded-2xl font-semibold text-xs tracking-wide uppercase flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                pin.length >= 4 && !isLoading
-                  ? 'bg-stone-900 hover:bg-stone-800 text-white shadow-sm'
-                  : 'bg-stone-100 text-stone-400 cursor-not-allowed border border-stone-200/60'
-              }`}
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Sign In</span>
-                  <ArrowRight className="w-3.5 h-3.5 ml-0.5" />
-                </>
-              )}
-            </button>
+              </form>
+            )}
           </div>
         </div>
 
         {/* Footer */}
         <div className="text-center mt-6 text-xs text-stone-400">
-          <p>© {new Date().getFullYear()} {settings.clinicName || 'Nayiva SMHC'}</p>
+          <p>© {new Date().getFullYear()} {settings.clinicName || 'HomoeoCare Health Centre'}</p>
         </div>
 
       </div>
