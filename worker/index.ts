@@ -226,33 +226,38 @@ export default {
               updated_at = datetime('now')
             WHERE id = 'active'`
           ).bind(
-            body.clinic_name ?? body.clinicName,
-            body.tagline,
-            body.doctor_name ?? body.doctorName,
-            body.qualification,
-            body.registration_number ?? body.registrationNumber,
-            body.phone,
-            body.email,
-            body.address,
-            body.opd_timings ?? body.opdTimings,
-            body.consultation_fee_inr ?? body.consultationFeeINR,
-            body.followup_fee_inr ?? body.followupFeeINR,
-            body.currency_symbol ?? body.currencySymbol,
+            (body.clinic_name ?? body.clinicName ?? null) as string | null,
+            (body.tagline ?? null) as string | null,
+            (body.doctor_name ?? body.doctorName ?? null) as string | null,
+            (body.qualification ?? null) as string | null,
+            (body.registration_number ?? body.registrationNumber ?? null) as string | null,
+            (body.phone ?? null) as string | null,
+            (body.email ?? null) as string | null,
+            (body.address ?? null) as string | null,
+            (body.opd_timings ?? body.opdTimings ?? null) as string | null,
+            (body.consultation_fee_inr ?? body.consultationFeeINR ?? null) as number | null,
+            (body.followup_fee_inr ?? body.followupFeeINR ?? null) as number | null,
+            (body.currency_symbol ?? body.currencySymbol ?? null) as string | null,
             body.staff_pins ? JSON.stringify(body.staff_pins) : (body.staffPins ? JSON.stringify(body.staffPins) : null),
-            body.upi_id ?? body.upiId,
-            body.upi_payee_name ?? body.upiPayeeName,
-            body.gst_number ?? body.gstNumber,
-            body.invoice_prefix ?? body.invoicePrefix,
-            body.patient_id_prefix ?? body.patientIdPrefix,
-            body.default_prescription_advice ?? body.defaultPrescriptionAdvice,
+            (body.upi_id ?? body.upiId ?? null) as string | null,
+            (body.upi_payee_name ?? body.upiPayeeName ?? null) as string | null,
+            (body.gst_number ?? body.gstNumber ?? null) as string | null,
+            (body.invoice_prefix ?? body.invoicePrefix ?? null) as string | null,
+            (body.patient_id_prefix ?? body.patientIdPrefix ?? null) as string | null,
+            (body.default_prescription_advice ?? body.defaultPrescriptionAdvice ?? null) as string | null,
             body.consultation_types ? JSON.stringify(body.consultation_types) : (body.consultationTypes ? JSON.stringify(body.consultationTypes) : null),
             body.custom_categories ? JSON.stringify(body.custom_categories) : (body.customCategories ? JSON.stringify(body.customCategories) : null),
             body.custom_dosage_frequencies ? JSON.stringify(body.custom_dosage_frequencies) : (body.customDosageFrequencies ? JSON.stringify(body.customDosageFrequencies) : null),
             body.custom_remedies ? JSON.stringify(body.custom_remedies) : (body.customRemedies ? JSON.stringify(body.customRemedies) : null),
-            body.theme_mode ?? body.themeMode,
-            body.low_stock_threshold ?? body.lowStockThreshold,
-            body.low_stock_threshold_mode ?? body.lowStockThresholdMode
+            (body.theme_mode ?? body.themeMode ?? null) as string | null,
+            (body.low_stock_threshold ?? body.lowStockThreshold ?? null) as number | null,
+            (body.low_stock_threshold_mode ?? body.lowStockThresholdMode ?? null) as string | null
           ).run();
+
+          const newDocName = (body.doctor_name ?? body.doctorName) as string | undefined;
+          if (newDocName && typeof newDocName === 'string') {
+            await env.DB.prepare("UPDATE staff_users SET name = ? WHERE role = 'doctor'").bind(newDocName).run();
+          }
 
           return jsonResponse({ success: true, message: 'Settings updated' }, 200, request);
         }
@@ -467,22 +472,22 @@ export default {
               updated_at = datetime('now')
             WHERE id = ?`
           ).bind(
-            body.name,
-            body.phone,
-            body.email,
-            body.address,
-            body.age,
-            body.gender,
-            body.dob,
-            body.bloodGroup ?? body.blood_group,
+            body.name ?? null,
+            body.phone ?? null,
+            body.email ?? null,
+            body.address ?? null,
+            body.age ?? null,
+            body.gender ?? null,
+            body.dob ?? null,
+            body.bloodGroup ?? body.blood_group ?? null,
             isReceptionist ? 1 : 0,
-            body.constitutionalType ?? body.constitutional_type,
+            body.constitutionalType ?? body.constitutional_type ?? null,
             isReceptionist ? 1 : 0,
-            body.allergies,
+            body.allergies ?? null,
             isReceptionist ? 1 : 0,
-            body.medicalHistory ?? body.medical_history,
-            body.totalVisits ?? body.total_visits,
-            body.lastVisitDate ?? body.last_visit_date,
+            body.medicalHistory ?? body.medical_history ?? null,
+            body.totalVisits ?? body.total_visits ?? null,
+            body.lastVisitDate ?? body.last_visit_date ?? null,
             patientId
           ).run();
 
@@ -750,10 +755,10 @@ export default {
               updated_at = datetime('now')
             WHERE id = ?`
           ).bind(
-            body.currentStock ?? body.current_stock,
-            body.minReorderLevel ?? body.min_reorder_level,
-            body.unitPriceINR ?? body.unit_price_inr,
-            body.name,
+            body.currentStock ?? body.current_stock ?? null,
+            body.minReorderLevel ?? body.min_reorder_level ?? null,
+            body.unitPriceINR ?? body.unit_price_inr ?? null,
+            body.name ?? null,
             itemId
           ).run();
 

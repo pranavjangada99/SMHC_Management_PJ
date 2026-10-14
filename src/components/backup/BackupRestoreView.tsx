@@ -689,9 +689,9 @@ export const BackupRestoreView: React.FC = () => {
 
           <form onSubmit={handleSavePins} className="space-y-4">
             <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-200/60">
-              <label className="block text-xs font-bold text-amber-900 mb-1">Admin Station PIN</label>
+              <label className="block text-xs font-bold text-amber-900 mb-1">Admin Station Passcode</label>
               <input
-                type="text"
+                type="password"
                 maxLength={6}
                 value={adminPin}
                 onChange={e => setAdminPin(e.target.value)}
@@ -701,9 +701,9 @@ export const BackupRestoreView: React.FC = () => {
             </div>
 
             <div className="p-3 bg-stone-100/80 rounded-xl border border-stone-200">
-              <label className="block text-xs font-bold text-stone-900 mb-1">Doctor Station PIN</label>
+              <label className="block text-xs font-bold text-stone-900 mb-1">Doctor Station Passcode</label>
               <input
-                type="text"
+                type="password"
                 maxLength={6}
                 value={doctorPin}
                 onChange={e => setDoctorPin(e.target.value)}
@@ -713,9 +713,9 @@ export const BackupRestoreView: React.FC = () => {
             </div>
 
             <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-200/60">
-              <label className="block text-xs font-bold text-blue-900 mb-1">Receptionist Desk PIN</label>
+              <label className="block text-xs font-bold text-blue-900 mb-1">Receptionist Desk Passcode</label>
               <input
-                type="text"
+                type="password"
                 maxLength={6}
                 value={receptionistPin}
                 onChange={e => setReceptionistPin(e.target.value)}

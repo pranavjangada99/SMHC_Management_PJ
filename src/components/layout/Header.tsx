@@ -45,6 +45,8 @@ export const Header: React.FC<HeaderProps> = ({
 
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [staffModalInitialRole, setStaffModalInitialRole] = useState<UserRole>('receptionist');
+  const [staffModalInitialAdding, setStaffModalInitialAdding] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleManualSync = async () => {
@@ -122,18 +124,11 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={onOpenCommandPalette}
-              className="w-full flex items-center justify-between gap-2.5 px-3.5 py-1.5 text-xs text-slate-500 bg-slate-100/90 hover:bg-slate-200/80 border border-slate-200/90 rounded-xl transition-all cursor-pointer shadow-2xs group"
-              title="Search patients, consultations, and actions (⌘K or Ctrl+K)"
+              className="w-full flex items-center gap-2.5 px-3.5 py-1.5 text-xs text-slate-500 bg-slate-100/90 hover:bg-slate-200/80 border border-slate-200/90 rounded-xl transition-all cursor-pointer shadow-2xs group"
+              title="Search patients, consultations, and actions"
             >
-              <div className="flex items-center gap-2 truncate">
-                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
-                <span className="font-medium text-slate-600 truncate">Quick Search (Patients, Consultations)...</span>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <kbd className="font-mono text-[10px] font-semibold bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs text-slate-500 group-hover:border-indigo-300 group-hover:text-indigo-600 transition-colors">
-                  ⌘K
-                </kbd>
-              </div>
+              <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors shrink-0" />
+              <span className="font-medium text-slate-600 truncate">Quick Search (Patients, Consultations)...</span>
             </button>
           </div>
 
@@ -145,7 +140,7 @@ export const Header: React.FC<HeaderProps> = ({
               type="button"
               onClick={onOpenCommandPalette}
               className="md:hidden p-1.5 sm:p-2 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-              title="Quick Search (⌘K / Ctrl+K)"
+              title="Quick Search"
               aria-label="Search patients and consultations"
             >
               <Search className="w-4 h-4" />
@@ -197,24 +192,58 @@ export const Header: React.FC<HeaderProps> = ({
 
                     {/* Manage Staff Users (Admin & Doctor) */}
                     {(role === 'admin' || role === 'doctor') && (
-                      <div className="p-1 border-b border-slate-100">
+                      <div className="p-1 border-b border-slate-100 space-y-1">
                         <button
                           type="button"
                           onClick={() => {
                             setRoleMenuOpen(false);
+                            setStaffModalInitialRole('receptionist');
+                            setStaffModalInitialAdding(true);
                             setIsStaffModalOpen(true);
                           }}
-                          className="w-full px-3 py-2 text-left text-xs font-semibold text-indigo-900 bg-indigo-50/70 hover:bg-indigo-100 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
+                          className="w-full px-3 py-2 text-left text-xs font-semibold text-blue-900 bg-blue-50/70 hover:bg-blue-100 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
                         >
                           <div className="flex items-center gap-2">
-                            <UserPlus className="w-4 h-4 text-indigo-600" />
-                            <span>
-                              {role === 'admin' ? 'Manage Staff (Add Doctor)' : 'Staff Users (Add Receptionist)'}
-                            </span>
+                            <UserPlus className="w-4 h-4 text-blue-600" />
+                            <span>+ Add Receptionist</span>
                           </div>
-                          <span className="text-[10px] bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded font-bold">
-                            {role === 'admin' ? 'Admin' : 'Doctor'}
+                          <span className="text-[10px] bg-blue-200 text-blue-900 px-1.5 py-0.5 rounded font-bold">
+                            Front Desk
                           </span>
+                        </button>
+
+                        {role === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRoleMenuOpen(false);
+                              setStaffModalInitialRole('doctor');
+                              setStaffModalInitialAdding(true);
+                              setIsStaffModalOpen(true);
+                            }}
+                            className="w-full px-3 py-2 text-left text-xs font-semibold text-indigo-900 bg-indigo-50/70 hover:bg-indigo-100 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <UserPlus className="w-4 h-4 text-indigo-600" />
+                              <span>+ Add Doctor</span>
+                            </div>
+                            <span className="text-[10px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded font-bold">
+                              Practitioner
+                            </span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRoleMenuOpen(false);
+                            setStaffModalInitialAdding(false);
+                            setIsStaffModalOpen(true);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
+                        >
+                          <span>Manage Staff Directory</span>
+                          <span className="text-[10px] text-slate-400">View All</span>
                         </button>
                       </div>
                     )}
@@ -256,6 +285,8 @@ export const Header: React.FC<HeaderProps> = ({
       <StaffManagementModal
         isOpen={isStaffModalOpen}
         onClose={() => setIsStaffModalOpen(false)}
+        initialRole={staffModalInitialRole}
+        initialAdding={staffModalInitialAdding}
       />
     </header>
   );

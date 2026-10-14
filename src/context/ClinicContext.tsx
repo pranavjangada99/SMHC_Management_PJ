@@ -736,11 +736,18 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   // Clinic Settings
   const updateSettings = (updates: Partial<ClinicSettings>) => {
-    setSettings(prev => ({
-      ...prev,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    }));
+    setSettings(prev => {
+      const merged = {
+        ...prev,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+      localStore.saveSettings(merged);
+      return merged;
+    });
+    if (updates.doctorName) {
+      setStaffUsers(prev => prev.map(u => u.role === 'doctor' ? { ...u, name: updates.doctorName! } : u));
+    }
     clinicApi.updateSettings(updates).catch(err => console.warn('D1 settings update notice:', err));
   };
 

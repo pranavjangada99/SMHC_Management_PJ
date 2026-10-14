@@ -230,6 +230,12 @@ app.put('/api/settings', (req, res) => {
       body.low_stock_threshold ?? body.lowStockThreshold ?? null,
       body.low_stock_threshold_mode ?? body.lowStockThresholdMode ?? null
     );
+
+    const newDocName = body.doctor_name ?? body.doctorName;
+    if (newDocName) {
+      sqlite.prepare("UPDATE staff_users SET name = ? WHERE role = 'doctor'").run(newDocName);
+    }
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useClinic } from '../../context/ClinicContext';
 import { UserRole, StaffUser } from '../../types/clinic';
 import { 
@@ -10,20 +11,31 @@ import {
   Trash2, 
   CheckCircle2, 
   AlertCircle, 
-  UserCheck, 
   Phone, 
   Mail, 
-  KeyRound, 
   Lock,
-  UserPlus
+  UserPlus,
+  Eye,
+  EyeOff,
+  Sparkles,
+  Users,
+  Copy,
+  Check
 } from 'lucide-react';
 
-interface StaffManagementModalProps {
+export interface StaffManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialRole?: UserRole;
+  initialAdding?: boolean;
 }
 
-export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({ isOpen, onClose }) => {
+export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({ 
+  isOpen, 
+  onClose,
+  initialRole = 'receptionist',
+  initialAdding = false
+}) => {
   const { 
     role, 
     staffUsers, 
@@ -32,40 +44,80 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({ isOp
     loadStaffUsers 
   } = useClinic();
 
-  const [isAdding, setIsAdding] = useState(false);
-  const [targetRole, setTargetRole] = useState<UserRole>(role === 'admin' ? 'doctor' : 'receptionist');
+  type TabMode = 'directory' | 'add-receptionist' | 'add-doctor';
+  
+  const [activeTab, setActiveTab] = useState<TabMode>('directory');
   const [name, setName] = useState('');
   const [title, setTitle] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [revealedPins, setRevealedPins] = useState<Record<string, boolean>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Sync initial tab when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setErrorMsg('');
+      setSuccessMsg('');
+      if (initialAdding) {
+        if (initialRole === 'doctor' && role === 'admin') {
+          setActiveTab('add-doctor');
+          setTitle('Associate Homoeopathic Physician');
+        } else {
+          setActiveTab('add-receptionist');
+          setTitle('Front Desk Coordinator');
+        }
+      } else {
+        setActiveTab('directory');
+      }
+      setName('');
+      setEmail('');
+      setPhone('');
+      setPin('');
+      setShowPin(false);
+    }
+  }, [isOpen, initialAdding, initialRole, role]);
 
   if (!isOpen) return null;
 
-  const handleOpenAdd = (newRole: UserRole) => {
-    // Role check: Only admin can create doctor
-    if (newRole === 'doctor' && role !== 'admin') {
-      setErrorMsg('Only Clinic Admin can create Doctor accounts.');
-      return;
-    }
-    // Doctors can only add receptionists
-    if (role === 'doctor' && newRole !== 'receptionist') {
-      setErrorMsg('Doctors can only add Receptionist accounts.');
-      return;
-    }
-
-    setTargetRole(newRole);
-    setName('');
-    setTitle(newRole === 'doctor' ? 'Associate Homoeopathic Physician' : 'Front Desk Coordinator');
-    setEmail('');
-    setPhone('');
-    setPin(newRole === 'doctor' ? '2222' : '3333');
+  const handleTabSwitch = (tab: TabMode) => {
+    setActiveTab(tab);
     setErrorMsg('');
     setSuccessMsg('');
-    setIsAdding(true);
+    setName('');
+    setEmail('');
+    setPhone('');
+    setPin('');
+    setShowPin(false);
+    if (tab === 'add-receptionist') {
+      setTitle('Front Desk Coordinator');
+    } else if (tab === 'add-doctor') {
+      setTitle('Associate Homoeopathic Physician');
+    }
+  };
+
+  const handleGeneratePin = () => {
+    const randomPin = Math.floor(1000 + Math.random() * 9000).toString();
+    setPin(randomPin);
+    setShowPin(true);
+  };
+
+  const handleCopyPin = (staffId: string, staffPin: string) => {
+    navigator.clipboard.writeText(staffPin);
+    setCopiedId(staffId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const togglePinReveal = (staffId: string) => {
+    setRevealedPins(prev => ({
+      ...prev,
+      [staffId]: !prev[staffId]
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,28 +126,30 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({ isOp
     setSuccessMsg('');
 
     if (!name.trim()) {
-      setErrorMsg('Staff member name is required.');
+      setErrorMsg('Please enter the full name.');
       return;
     }
 
-    if (!pin || pin.length < 4) {
-      setErrorMsg('A 4-digit security PIN is required.');
+    if (!pin || pin.length !== 4) {
+      setErrorMsg('A valid 4-digit security PIN is required.');
       return;
     }
 
-    // Role-based hierarchy enforcement check
+    const targetRole: UserRole = activeTab === 'add-doctor' ? 'doctor' : 'receptionist';
+
+    // Role hierarchy authorization check
     if (targetRole === 'doctor' && role !== 'admin') {
-      setErrorMsg('Only Clinic Admin can create new Doctor accounts.');
+      setErrorMsg('Only Clinic Admin can create Doctor accounts.');
       return;
     }
 
     if (role === 'doctor' && targetRole !== 'receptionist') {
-      setErrorMsg('Doctors can only add Receptionist users.');
+      setErrorMsg('Doctors can only create Receptionist accounts.');
       return;
     }
 
     if (role === 'receptionist') {
-      setErrorMsg('Receptionists do not have permission to add staff users.');
+      setErrorMsg('Receptionists do not have permission to manage staff.');
       return;
     }
 
@@ -104,22 +158,26 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({ isOp
       await createStaffUser({
         role: targetRole,
         name: name.trim(),
-        title: title.trim(),
+        title: title.trim() || (targetRole === 'doctor' ? 'Associate Homoeopathic Physician' : 'Front Desk Coordinator'),
         email: email.trim() || undefined,
         phone: phone.trim() || undefined,
         pin: pin.trim(),
       });
 
-      setSuccessMsg(`Successfully added ${targetRole.toUpperCase()}: ${name.trim()} (PIN: ${pin.trim()})`);
-      setIsAdding(false);
+      setSuccessMsg(`Created ${name.trim()} (${targetRole === 'doctor' ? 'Doctor' : 'Receptionist'}) with PIN: ${pin.trim()}`);
       setName('');
       setTitle('');
       setEmail('');
       setPhone('');
       setPin('');
       await loadStaffUsers();
+      
+      // Auto-switch back to directory after brief moment
+      setTimeout(() => {
+        setActiveTab('directory');
+      }, 1500);
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to create staff user.');
+      setErrorMsg(err?.message || 'Failed to create staff account.');
     } finally {
       setIsSubmitting(false);
     }
@@ -127,43 +185,108 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({ isOp
 
   const handleDelete = async (staffId: string, staffName: string) => {
     if (staffId === 'staff-admin') {
-      alert('Primary Clinic Administrator cannot be removed.');
+      alert('Primary Clinic Administrator account cannot be deleted.');
       return;
     }
-    if (window.confirm(`Are you sure you want to remove staff user: ${staffName}?`)) {
+    if (window.confirm(`Are you sure you want to remove ${staffName}?`)) {
       try {
         await deleteStaffUser(staffId);
-        setSuccessMsg(`Staff member ${staffName} removed successfully.`);
+        setSuccessMsg(`Removed ${staffName} successfully.`);
+        await loadStaffUsers();
       } catch (err: any) {
-        setErrorMsg(err?.message || 'Failed to remove staff member.');
+        setErrorMsg(err?.message || 'Failed to remove staff account.');
       }
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+      <div 
+        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" 
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div 
+        className="relative bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh] my-auto animate-in fade-in zoom-in-95 duration-150 z-10"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
-        <div className="px-6 py-4 bg-stone-50 border-b border-stone-200 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700">
-              <UserPlus className="w-5 h-5" />
+        <div className="px-6 py-4 bg-stone-50/90 border-b border-stone-200 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 shadow-2xs">
+              <Users className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-slate-800">Staff Management & Role Access</h3>
-              <p className="text-xs text-slate-500">
-                Logged in as <span className="font-semibold text-slate-700 capitalize">{role}</span> • Cloudflare D1 User Hierarchy
+              <h3 className="text-base font-bold text-stone-900">Staff Accounts & Access</h3>
+              <p className="text-xs text-stone-500">
+                Logged in as <span className="font-semibold text-stone-800 capitalize">{role}</span>
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition-colors"
+            className="p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition-colors cursor-pointer"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="px-6 pt-3 pb-0 bg-white border-b border-stone-100 shrink-0">
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => handleTabSwitch('directory')}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'directory'
+                  ? 'bg-stone-900 text-white shadow-2xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Staff Directory</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                activeTab === 'directory' ? 'bg-stone-700 text-stone-200' : 'bg-stone-200 text-stone-700'
+              }`}>
+                {staffUsers.length}
+              </span>
+            </button>
+
+            {(role === 'admin' || role === 'doctor') && (
+              <button
+                type="button"
+                onClick={() => handleTabSwitch('add-receptionist')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'add-receptionist'
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'text-blue-700 bg-blue-50/70 hover:bg-blue-100/80 border border-blue-200/60'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Receptionist</span>
+              </button>
+            )}
+
+            {role === 'admin' && (
+              <button
+                type="button"
+                onClick={() => handleTabSwitch('add-doctor')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'add-doctor'
+                    ? 'bg-indigo-600 text-white shadow-2xs'
+                    : 'text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/60'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ Add Doctor</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Content Body */}
@@ -171,299 +294,375 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({ isOp
           
           {/* Notifications */}
           {errorMsg && (
-            <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 p-3 rounded-xl">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="mb-4 flex items-center gap-2.5 text-xs font-medium text-rose-800 bg-rose-50 border border-rose-200 p-3.5 rounded-2xl">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="mb-4 flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 p-3 rounded-xl">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <div className="mb-4 flex items-center gap-2.5 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200 p-3.5 rounded-2xl">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
               <span>{successMsg}</span>
             </div>
           )}
 
-          {/* Action Header: Add Buttons */}
-          {!isAdding && (
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-stone-200">
-              <div>
-                <p className="text-xs font-semibold text-slate-700">Staff Accounts Directory</p>
-                <p className="text-[11px] text-slate-400">
-                  {role === 'admin' 
-                    ? 'Admin can create Doctor and Receptionist accounts.' 
-                    : 'Doctor can add Receptionist accounts.'}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Admin Only: Create Doctor Button */}
-                {role === 'admin' && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenAdd('doctor')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all cursor-pointer shadow-2xs"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>+ Add New Doctor</span>
-                  </button>
-                )}
-
-                {/* Admin & Doctor: Create Receptionist Button */}
-                {(role === 'admin' || role === 'doctor') && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenAdd('receptionist')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-blue-900 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-all cursor-pointer shadow-2xs"
-                  >
-                    <Plus className="w-3.5 h-3.5 text-blue-600" />
-                    <span>+ Add Receptionist</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ADD NEW USER FORM */}
-          {isAdding && (
-            <div className="bg-stone-50/80 rounded-2xl border border-stone-200 p-5 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <div className={`p-1.5 rounded-lg text-white ${targetRole === 'doctor' ? 'bg-indigo-600' : 'bg-blue-600'}`}>
-                    {targetRole === 'doctor' ? <Stethoscope className="w-4 h-4" /> : <Receipt className="w-4 h-4" />}
+          {/* ADD RECEPTIONIST / DOCTOR FORM */}
+          {(activeTab === 'add-receptionist' || activeTab === 'add-doctor') && (
+            <div className="space-y-5">
+              <div className="flex items-center justify-between pb-3 border-b border-stone-200/80">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-2xl text-white shadow-2xs ${
+                    activeTab === 'add-doctor' ? 'bg-indigo-600' : 'bg-blue-600'
+                  }`}>
+                    {activeTab === 'add-doctor' ? <Stethoscope className="w-5 h-5" /> : <Receipt className="w-5 h-5" />}
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-800">
-                      Provision New {targetRole === 'doctor' ? 'Doctor' : 'Receptionist'}
+                    <h4 className="text-sm font-bold text-stone-900">
+                      {activeTab === 'add-doctor' ? 'New Doctor Account' : 'New Receptionist Account'}
                     </h4>
-                    <p className="text-[11px] text-slate-500">
-                      {targetRole === 'doctor' 
-                        ? 'Admin-Authorized Clinical Physician' 
-                        : 'Front Desk & Patient Coordinator'}
+                    <p className="text-xs text-stone-500">
+                      {activeTab === 'add-doctor'
+                        ? 'Set up credentials for clinical practitioner.'
+                        : 'Set up credentials for front desk registration and billing desk.'}
                     </p>
                   </div>
                 </div>
+
                 <button
                   type="button"
-                  onClick={() => setIsAdding(false)}
-                  className="text-xs text-stone-500 hover:text-stone-800 font-semibold cursor-pointer"
+                  onClick={() => handleTabSwitch('directory')}
+                  className="text-xs text-stone-500 hover:text-stone-800 font-medium px-2.5 py-1 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
                 >
-                  Cancel
+                  View Directory
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-3.5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Name */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
                       Full Name *
                     </label>
                     <input
                       type="text"
+                      autoFocus
                       value={name}
                       onChange={e => setName(e.target.value)}
-                      placeholder={targetRole === 'doctor' ? 'e.g. Dr. Sarah Khan' : 'e.g. Anjali Verma'}
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-200 rounded-xl focus:border-indigo-400 focus:outline-hidden"
+                      placeholder={activeTab === 'add-doctor' ? 'e.g. Dr. Sunil Kumar' : 'e.g. Anjali Verma'}
+                      className="w-full px-3.5 py-2.5 text-sm bg-stone-50/60 border border-stone-300 rounded-xl focus:bg-white focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden transition-all text-stone-900"
                       required
                     />
                   </div>
 
+                  {/* Title */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Professional Title / Qualification
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Role Title / Designation
                     </label>
                     <input
                       type="text"
                       value={title}
                       onChange={e => setTitle(e.target.value)}
-                      placeholder={targetRole === 'doctor' ? 'e.g. B.H.M.S, M.D. (Hom.)' : 'e.g. Front Desk Executive'}
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-200 rounded-xl focus:border-indigo-400 focus:outline-hidden"
+                      placeholder={activeTab === 'add-doctor' ? 'e.g. B.H.M.S, M.D. (Hom.)' : 'e.g. Front Desk Coordinator'}
+                      className="w-full px-3.5 py-2.5 text-sm bg-stone-50/60 border border-stone-300 rounded-xl focus:bg-white focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden transition-all text-stone-900"
                     />
                   </div>
 
+                  {/* Contact Phone */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={e => setEmail(e.target.value)}
-                      placeholder="e.g. doctor@homoeocareclinic.in"
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-200 rounded-xl focus:border-indigo-400 focus:outline-hidden"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
                       Phone Number
                     </label>
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={e => setPhone(e.target.value)}
-                      placeholder="+91 98765 43210"
-                      className="w-full px-3 py-2 text-xs bg-white border border-stone-200 rounded-xl focus:border-indigo-400 focus:outline-hidden"
-                    />
+                    <div className="relative">
+                      <Phone className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+                      <input
+                        type="tel"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                        placeholder="+91 98765 43210"
+                        className="w-full pl-9 pr-3.5 py-2.5 text-sm bg-stone-50/60 border border-stone-300 rounded-xl focus:bg-white focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden transition-all text-stone-900"
+                      />
+                    </div>
                   </div>
 
+                  {/* Contact Email */}
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      4-Digit Security PIN (Login Code) *
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Email Address
                     </label>
-                    <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
                       <input
-                        type="password"
-                        maxLength={4}
-                        value={pin}
-                        onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
-                        placeholder={targetRole === 'doctor' ? '2222' : '3333'}
-                        className="w-32 px-3 py-2 text-sm font-mono tracking-widest font-bold bg-white border border-stone-200 rounded-xl focus:border-indigo-400 focus:outline-hidden text-center"
-                        required
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        placeholder="staff@homoeocareclinic.in"
+                        className="w-full pl-9 pr-3.5 py-2.5 text-sm bg-stone-50/60 border border-stone-300 rounded-xl focus:bg-white focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden transition-all text-stone-900"
                       />
-                      <span className="text-[11px] text-slate-500">
-                        Staff will use this PIN to log in to the workstation.
-                      </span>
+                    </div>
+                  </div>
+
+                  {/* 4-Digit Security PIN */}
+                  <div className="sm:col-span-2 bg-stone-50 rounded-2xl border border-stone-200/90 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-bold text-stone-900">
+                        4-Digit Login PIN *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleGeneratePin}
+                        className="flex items-center gap-1.5 text-xs font-semibold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100/80 px-2.5 py-1 rounded-lg border border-indigo-200/60 transition-colors cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Generate Random PIN</span>
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="relative">
+                        <input
+                          type={showPin ? 'text' : 'password'}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={4}
+                          value={pin}
+                          onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+                          placeholder="••••"
+                          className="w-36 px-4 py-2.5 text-lg font-mono tracking-widest font-bold bg-white border border-stone-300 rounded-xl focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden text-center text-stone-900"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPin(!showPin)}
+                          className="absolute right-2.5 top-3 text-stone-400 hover:text-stone-700 cursor-pointer"
+                          title={showPin ? 'Hide PIN' : 'Show PIN'}
+                        >
+                          {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+
+                      <div className="text-xs text-stone-500 flex-1 min-w-[200px]">
+                        {pin.length === 4 ? (
+                          <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> 4 digits ready for login
+                          </span>
+                        ) : (
+                          <span>Enter exactly 4 digits for station sign-in.</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex justify-end gap-2 pt-2">
+                {/* Role Permissions Scope Notice */}
+                <div className="p-3.5 bg-blue-50/60 border border-blue-100 rounded-2xl text-xs text-blue-950 space-y-1">
+                  <span className="font-bold text-blue-900 block">
+                    {activeTab === 'add-doctor' ? 'Doctor Access Scope:' : 'Receptionist Access Scope:'}
+                  </span>
+                  {activeTab === 'add-doctor' ? (
+                    <p className="text-blue-900/80">
+                      Access to consultations, patient clinical records, prescriptions, repertory, and queue management.
+                    </p>
+                  ) : (
+                    <p className="text-blue-900/80">
+                      Access to patient registration, token queue, prescription lookup, and today's billing counter. Clinical notes and revenue intelligence remain restricted.
+                    </p>
+                  )}
+                </div>
+
+                {/* Form Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-200">
                   <button
                     type="button"
-                    onClick={() => setIsAdding(false)}
-                    className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-stone-200 rounded-xl hover:bg-stone-50"
+                    onClick={() => handleTabSwitch('directory')}
+                    className="px-4 py-2.5 text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 rounded-xl transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting}
-                    className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-xs cursor-pointer"
+                    disabled={isSubmitting || pin.length !== 4 || !name.trim()}
+                    className={`flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white rounded-xl transition-all shadow-xs cursor-pointer ${
+                      activeTab === 'add-doctor'
+                        ? 'bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50'
+                        : 'bg-blue-600 hover:bg-blue-700 disabled:opacity-50'
+                    }`}
                   >
-                    {isSubmitting ? 'Saving...' : `Create ${targetRole === 'doctor' ? 'Doctor' : 'Receptionist'} User`}
+                    {isSubmitting ? (
+                      <span>Saving...</span>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        <span>Save {activeTab === 'add-doctor' ? 'Doctor' : 'Receptionist'}</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
             </div>
           )}
 
-          {/* STAFF USERS LIST */}
-          <div className="space-y-2.5">
-            {staffUsers.length === 0 ? (
-              <div className="text-center py-8 text-stone-400 text-xs">
-                No staff users found.
+          {/* STAFF USERS DIRECTORY */}
+          {activeTab === 'directory' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-stone-700 uppercase tracking-wider">
+                    Registered Clinic Accounts
+                  </h4>
+                  <p className="text-xs text-stone-500">
+                    Active team members authorized for station sign-in
+                  </p>
+                </div>
               </div>
-            ) : (
-              staffUsers.map(u => {
-                const isDoc = u.role === 'doctor';
-                const isAdmin = u.role === 'admin';
-                const isRec = u.role === 'receptionist';
 
-                return (
-                  <div
-                    key={u.id}
-                    className="p-3.5 rounded-2xl bg-white border border-stone-200/90 shadow-2xs flex items-center justify-between gap-3 hover:border-stone-300 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
+              <div className="space-y-3">
+                {staffUsers.length === 0 ? (
+                  <div className="text-center py-12 text-stone-400 text-xs bg-stone-50 rounded-2xl border border-dashed border-stone-200">
+                    No staff accounts configured.
+                  </div>
+                ) : (
+                  staffUsers.map(u => {
+                    const isDoc = u.role === 'doctor';
+                    const isAdmin = u.role === 'admin';
+                    const isRec = u.role === 'receptionist';
+                    const isPinRevealed = !!revealedPins[u.id];
+
+                    return (
                       <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                          isAdmin
-                            ? 'bg-amber-100 text-amber-800'
-                            : isDoc
-                            ? 'bg-indigo-100 text-indigo-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}
+                        key={u.id}
+                        className="p-4 rounded-2xl bg-white border border-stone-200/90 shadow-2xs hover:border-stone-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                       >
-                        {isAdmin ? (
-                          <ShieldCheck className="w-5 h-5" />
-                        ) : isDoc ? (
-                          <Stethoscope className="w-5 h-5" />
-                        ) : (
-                          <Receipt className="w-5 h-5" />
-                        )}
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-xs sm:text-sm font-bold text-slate-800 truncate">
-                            {u.name}
-                          </h4>
-                          <span
-                            className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                        <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+                          <div
+                            className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs ${
                               isAdmin
-                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-200'
                                 : isDoc
-                                ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
-                                : 'bg-blue-50 text-blue-800 border-blue-200'
+                                ? 'bg-indigo-100 text-indigo-900 border border-indigo-200'
+                                : 'bg-blue-100 text-blue-900 border border-blue-200'
                             }`}
                           >
-                            {u.role}
-                          </span>
+                            {isAdmin ? (
+                              <ShieldCheck className="w-5 h-5" />
+                            ) : isDoc ? (
+                              <Stethoscope className="w-5 h-5" />
+                            ) : (
+                              <Receipt className="w-5 h-5" />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-bold text-stone-900 truncate">
+                                {u.name}
+                              </h4>
+                              <span
+                                className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${
+                                  isAdmin
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : isDoc
+                                    ? 'bg-indigo-50 text-indigo-800 border-indigo-200'
+                                    : 'bg-blue-50 text-blue-800 border-blue-200'
+                                }`}
+                              >
+                                {u.role === 'admin' ? 'Administrator' : u.role}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-stone-500 mt-1">
+                              {u.title && <span>{u.title}</span>}
+                              {u.phone && (
+                                <span className="flex items-center gap-1 text-stone-400">
+                                  <Phone className="w-3 h-3" />
+                                  {u.phone}
+                                </span>
+                              )}
+                              {u.email && (
+                                <span className="flex items-center gap-1 text-stone-400">
+                                  <Mail className="w-3 h-3" />
+                                  {u.email}
+                                </span>
+                              )}
+                              {u.createdByRole && u.role !== 'admin' && (
+                                <span className="text-[11px] text-stone-400 italic">
+                                  Added by {u.createdByRole}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500 mt-0.5">
-                          {u.title && <span>{u.title}</span>}
-                          {u.email && (
-                            <span className="flex items-center gap-1 text-slate-400">
-                              <Mail className="w-3 h-3" />
-                              {u.email}
+                        {/* Right side controls: PIN view & Delete */}
+                        <div className="flex items-center gap-2 self-end sm:self-center shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100 w-full sm:w-auto justify-between sm:justify-end">
+                          {/* PIN viewer for authorized users */}
+                          {(role === 'admin' || (role === 'doctor' && isRec)) && u.pin && u.pin !== '****' ? (
+                            <div className="flex items-center gap-1 bg-stone-100 px-2.5 py-1 rounded-xl border border-stone-200">
+                              <span className="text-[11px] font-bold text-stone-500 mr-1">PIN:</span>
+                              <span className="text-xs font-mono font-bold text-stone-900 tracking-wider">
+                                {isPinRevealed ? u.pin : '••••'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => togglePinReveal(u.id)}
+                                className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer ml-1"
+                                title={isPinRevealed ? 'Hide PIN' : 'Show PIN'}
+                              >
+                                {isPinRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyPin(u.id, u.pin!)}
+                                className="p-1 text-stone-400 hover:text-stone-700 cursor-pointer"
+                                title="Copy PIN"
+                              >
+                                {copiedId === u.id ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs font-mono text-stone-500 bg-stone-100 px-2.5 py-1 rounded-xl border border-stone-200">
+                              PIN: ••••
                             </span>
                           )}
-                          {u.phone && (
-                            <span className="flex items-center gap-1 text-slate-400">
-                              <Phone className="w-3 h-3" />
-                              {u.phone}
-                            </span>
-                          )}
-                          {u.createdByRole && (
-                            <span className="text-[10px] text-slate-400 italic">
-                              Added by {u.createdByRole}
-                            </span>
+
+                          {/* Delete action */}
+                          {((role === 'admin' && !isAdmin) || (role === 'doctor' && isRec)) && (
+                            <button
+                              type="button"
+                              onClick={() => handleDelete(u.id, u.name)}
+                              className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                              title={`Remove ${u.name}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           )}
                         </div>
                       </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {/* PIN Badge */}
-                      <span className="text-xs font-mono font-bold bg-stone-100 text-stone-700 px-2 py-1 rounded-lg border border-stone-200/80">
-                        PIN: {u.pin || '••••'}
-                      </span>
-
-                      {/* Delete button (Admin can delete non-admin; Doctor can delete receptionist) */}
-                      {((role === 'admin' && !isAdmin) || (role === 'doctor' && isRec)) && (
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(u.id, u.name)}
-                          className="p-1.5 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Remove staff member"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
 
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 bg-stone-50 border-t border-stone-200 flex items-center justify-between text-xs text-slate-500">
-          <span>Hierarchy Rule: Admin creates Doctors • Doctor creates Receptionists</span>
+        <div className="px-6 py-3.5 bg-stone-50/90 border-t border-stone-200 flex items-center justify-between text-xs text-stone-500 shrink-0">
+          <span>Administrator manages Doctors & Receptionists • Doctor manages Receptionists</span>
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 font-semibold text-slate-700 bg-white border border-stone-200 rounded-xl hover:bg-stone-100 cursor-pointer"
+            className="px-4 py-2 font-semibold text-stone-700 hover:text-stone-900 bg-white border border-stone-300 rounded-xl hover:bg-stone-100 transition-colors cursor-pointer shadow-2xs"
           >
             Close
           </button>
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

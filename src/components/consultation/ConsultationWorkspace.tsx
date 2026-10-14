@@ -81,29 +81,29 @@ export const ConsultationWorkspace: React.FC = () => {
   // Chief Complaints List
   const [chiefComplaints, setChiefComplaints] = useState<ChiefComplaintItem[]>([
     {
-      complaint: selectedAppointmentForConsultation?.chiefComplaint || 'Chronic digestive discomfort and acid reflux',
-      duration: '4 weeks',
-      sensation: 'Burning behind sternum, worse evening',
+      complaint: selectedAppointmentForConsultation?.chiefComplaint || '',
+      duration: '',
+      sensation: '',
       severity: 'moderate'
     }
   ]);
 
   // Modalities (Homoeopathic keynotes)
-  const [aggravation, setAggravation] = useState('Late night meals, fatty spicy food, mental stress');
-  const [amelioration, setAmelioration] = useState('Warm water, rest, morning walk');
+  const [aggravation, setAggravation] = useState('');
+  const [amelioration, setAmelioration] = useState('');
 
   // Mind and Constitutional Generals
   const [thermalReaction, setThermalReaction] = useState<ThermalReaction>('chilly');
-  const [temperament, setTemperament] = useState('Irritable, fastidious, driven, anxious about health');
-  const [thirst, setThirst] = useState('Thirsty for warm sips');
-  const [appetite, setAppetite] = useState('Good appetite, craving for sweets and warm tea');
-  const [sleep, setSleep] = useState('Wakes early around 3 AM, unrefreshing sleep');
+  const [temperament, setTemperament] = useState('');
+  const [thirst, setThirst] = useState('');
+  const [appetite, setAppetite] = useState('');
+  const [sleep, setSleep] = useState('');
 
   // Clinical Examination & Diagnosis
   const [miasm, setMiasm] = useState<MiasmType>('psora');
-  const [physicalObservations, setPhysicalObservations] = useState('Tongue lightly coated white. Abdominal palpation shows mild epigastric tenderness. Heart sounds S1 S2 normal.');
-  const [diagnosis, setDiagnosis] = useState('Dyspepsia / Acid Peptic Disorder with Constitutional Stress');
-  const [followUpAdvice, setFollowUpAdvice] = useState('Avoid stimulants after 7 PM. Maintain 3-hour gap between dinner and sleep. Take remedies on clean tongue.');
+  const [physicalObservations, setPhysicalObservations] = useState('');
+  const [diagnosis, setDiagnosis] = useState('');
+  const [followUpAdvice, setFollowUpAdvice] = useState('');
   const [nextVisitDate, setNextVisitDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 14);
@@ -111,18 +111,7 @@ export const ConsultationWorkspace: React.FC = () => {
   });
 
   // Prescribed Remedies
-  const [remedies, setRemedies] = useState<PrescribedRemedy[]>([
-    {
-      id: 'rem-init-1',
-      name: 'Nux Vomica',
-      potency: '200C',
-      form: 'pills',
-      dosage: '4 pills (Globules #30)',
-      frequency: 'At bedtime only (HS)',
-      durationDays: 14,
-      instructions: 'Dissolve on clean dry tongue at night. Do not touch with hands.'
-    }
-  ]);
+  const [remedies, setRemedies] = useState<PrescribedRemedy[]>([]);
 
   // General Homoeopathic Advice from dynamic clinic settings
   const [generalAdvice, setGeneralAdvice] = useState(

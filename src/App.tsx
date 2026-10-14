@@ -19,7 +19,6 @@ import { PracticeSettingsView } from './components/settings/PracticeSettingsView
 import { BackupRestoreView } from './components/backup/BackupRestoreView';
 
 import { LoginScreen } from './components/auth/LoginScreen';
-import { PinAuthModal } from './components/auth/PinAuthModal';
 import { PrescriptionPrintModal } from './components/prescription/PrescriptionPrintModal';
 import { InvoiceReceiptPrintModal } from './components/billing/InvoiceReceiptPrintModal';
 import { NewPatientModal } from './components/patients/NewPatientModal';
@@ -204,7 +203,6 @@ const AppContent: React.FC = () => {
       </nav>
 
       {/* Global Modals & Overlays */}
-      <PinAuthModal />
       <PrescriptionPrintModal />
       <InvoiceReceiptPrintModal />
       
