@@ -23,6 +23,7 @@ import { PrescriptionPrintModal } from './components/prescription/PrescriptionPr
 import { InvoiceReceiptPrintModal } from './components/billing/InvoiceReceiptPrintModal';
 import { NewPatientModal } from './components/patients/NewPatientModal';
 import { BookAppointmentModal } from './components/queue/BookAppointmentModal';
+import { StaffManagementModal } from './components/settings/StaffManagementModal';
 
 import { 
   LayoutDashboard, 
@@ -236,6 +237,9 @@ const AppContent: React.FC = () => {
         }}
         preSelectedPatientId={preSelectedPatientIdForApt}
       />
+
+      {/* Global Staff Accounts & Access Management Modal */}
+      <StaffManagementModal />
 
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useClinic } from '../../context/ClinicContext';
-import { UserRole, StaffUser } from '../../types/clinic';
+import { UserRole } from '../../types/clinic';
 import { 
   ShieldCheck, 
   Stethoscope, 
@@ -24,25 +24,34 @@ import {
 } from 'lucide-react';
 
 export interface StaffManagementModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   initialRole?: UserRole;
   initialAdding?: boolean;
 }
 
 export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({ 
-  isOpen, 
-  onClose,
-  initialRole = 'receptionist',
-  initialAdding = false
+  isOpen: propIsOpen, 
+  onClose: propOnClose,
+  initialRole: propInitialRole,
+  initialAdding: propInitialAdding
 }) => {
   const { 
     role, 
     staffUsers, 
     createStaffUser, 
     deleteStaffUser, 
-    loadStaffUsers 
+    loadStaffUsers,
+    isStaffModalOpen: contextIsOpen,
+    closeStaffModal: contextOnClose,
+    staffModalInitialRole: contextInitialRole,
+    staffModalInitialAdding: contextInitialAdding
   } = useClinic();
+
+  const isModalOpen = propIsOpen !== undefined ? propIsOpen : contextIsOpen;
+  const handleClose = propOnClose || contextOnClose;
+  const initialRole = propInitialRole || contextInitialRole || 'receptionist';
+  const initialAdding = propInitialAdding !== undefined ? propInitialAdding : contextInitialAdding;
 
   type TabMode = 'directory' | 'add-receptionist' | 'add-doctor';
   
@@ -58,12 +67,14 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [revealedPins, setRevealedPins] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState<{ id: string; name: string } | null>(null);
 
   // Sync initial tab when modal opens
   useEffect(() => {
-    if (isOpen) {
+    if (isModalOpen) {
       setErrorMsg('');
       setSuccessMsg('');
+      setConfirmDeleteUser(null);
       if (initialAdding) {
         if (initialRole === 'doctor' && role === 'admin') {
           setActiveTab('add-doctor');
@@ -81,14 +92,13 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
       setPin('');
       setShowPin(false);
     }
-  }, [isOpen, initialAdding, initialRole, role]);
-
-  if (!isOpen) return null;
+  }, [isModalOpen, initialAdding, initialRole, role]);
 
   const handleTabSwitch = (tab: TabMode) => {
     setActiveTab(tab);
     setErrorMsg('');
     setSuccessMsg('');
+    setConfirmDeleteUser(null);
     setName('');
     setEmail('');
     setPhone('');
@@ -187,53 +197,77 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
     }
   };
 
-  const handleDelete = async (staffId: string, staffName: string) => {
-    if (staffId === 'staff-admin') {
-      alert('Primary Clinic Administrator account cannot be deleted.');
+  const handleDeleteConfirmed = async () => {
+    if (!confirmDeleteUser) return;
+    const { id, name: staffName } = confirmDeleteUser;
+    
+    if (id === 'staff-admin') {
+      setErrorMsg('Primary Clinic Administrator account cannot be deleted.');
+      setConfirmDeleteUser(null);
       return;
     }
-    if (window.confirm(`Are you sure you want to remove ${staffName}?`)) {
-      try {
-        await deleteStaffUser(staffId);
-        setSuccessMsg(`Removed ${staffName} successfully.`);
-        await loadStaffUsers();
-      } catch (err: any) {
-        setErrorMsg(err?.message || 'Failed to remove staff account.');
-      }
+
+    try {
+      await deleteStaffUser(id);
+      setSuccessMsg(`Removed ${staffName} successfully.`);
+      setConfirmDeleteUser(null);
+      await loadStaffUsers();
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Failed to remove staff account.');
+      setConfirmDeleteUser(null);
     }
   };
 
-  if (!isOpen) return null;
+  if (!isModalOpen || typeof document === 'undefined') return null;
 
-  return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
+  const modalContent = (
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs p-3 sm:p-6 flex min-h-full items-start justify-center pt-4 sm:pt-10 pb-10"
+      onClick={handleClose}
+    >
       <div 
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" 
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div 
-        className="relative bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh] my-auto animate-in fade-in zoom-in-95 duration-150 z-10"
+        className="relative bg-white rounded-3xl shadow-2xl border border-stone-200 max-w-2xl w-full flex flex-col my-auto max-h-[calc(100vh-3.5rem)] overflow-hidden animate-in fade-in zoom-in-95 duration-150 z-10"
         onClick={(e) => e.stopPropagation()}
       >
-        
-        {/* Header */}
-        <div className="px-6 py-4 bg-stone-50/90 border-b border-stone-200 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 shadow-2xs">
-              <Users className="w-5 h-5" />
+        {/* Top Header */}
+        <div className="px-5 sm:px-6 py-4 bg-stone-50 border-b border-stone-200 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className={`w-10 h-10 rounded-2xl border flex items-center justify-center shadow-2xs shrink-0 ${
+              activeTab === 'add-receptionist'
+                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                : activeTab === 'add-doctor'
+                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                : 'bg-stone-100 border-stone-200 text-stone-700'
+            }`}>
+              {activeTab === 'add-receptionist' ? (
+                <Receipt className="w-5 h-5" />
+              ) : activeTab === 'add-doctor' ? (
+                <Stethoscope className="w-5 h-5" />
+              ) : (
+                <Users className="w-5 h-5" />
+              )}
             </div>
-            <div>
-              <h3 className="text-base font-bold text-stone-900">Staff Accounts & Access</h3>
-              <p className="text-xs text-stone-500">
-                Logged in as <span className="font-semibold text-stone-800 capitalize">{role}</span>
+            <div className="min-w-0">
+              <h3 className="text-base font-bold text-stone-900 truncate">
+                {activeTab === 'add-receptionist'
+                  ? 'Add Receptionist Account'
+                  : activeTab === 'add-doctor'
+                  ? 'Add Doctor Account'
+                  : 'Staff Accounts & Directory'}
+              </h3>
+              <p className="text-xs text-stone-500 truncate">
+                {activeTab === 'add-receptionist'
+                  ? 'Front Desk Registration & Billing Coordinator'
+                  : activeTab === 'add-doctor'
+                  ? 'Clinical Practitioner & Homoeopath'
+                  : `Signed in as ${role}`}
               </p>
             </div>
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="p-2 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition-colors cursor-pointer"
+            onClick={handleClose}
+            className="p-2 -mr-1 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-200/60 transition-colors cursor-pointer shrink-0"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -241,12 +275,12 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6 pt-3 pb-0 bg-white border-b border-stone-100 shrink-0">
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <div className="px-4 sm:px-6 pt-3 pb-2 bg-white border-b border-stone-100 shrink-0">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none whitespace-nowrap">
             <button
               type="button"
               onClick={() => handleTabSwitch('directory')}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                 activeTab === 'directory'
                   ? 'bg-stone-900 text-white shadow-2xs'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
@@ -265,7 +299,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabSwitch('add-receptionist')}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                   activeTab === 'add-receptionist'
                     ? 'bg-blue-600 text-white shadow-2xs'
                     : 'text-blue-700 bg-blue-50/70 hover:bg-blue-100/80 border border-blue-200/60'
@@ -280,7 +314,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
               <button
                 type="button"
                 onClick={() => handleTabSwitch('add-doctor')}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shrink-0 ${
                   activeTab === 'add-doctor'
                     ? 'bg-indigo-600 text-white shadow-2xs'
                     : 'text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100/80 border border-indigo-200/60'
@@ -294,8 +328,38 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="p-6 overflow-y-auto flex-1">
-          
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+          {/* Delete Confirmation Prompt */}
+          {confirmDeleteUser && (
+            <div className="mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs animate-in fade-in">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold text-rose-900">Remove Staff Account?</p>
+                  <p className="text-rose-700 mt-0.5">
+                    Are you sure you want to remove <span className="font-semibold">{confirmDeleteUser.name}</span>? This account will no longer be able to log in.
+                  </p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={handleDeleteConfirmed}
+                      className="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow-2xs cursor-pointer"
+                    >
+                      Yes, Remove
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteUser(null)}
+                      className="px-3 py-1.5 text-xs font-medium text-stone-700 bg-white hover:bg-stone-100 border border-stone-300 rounded-lg cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Notifications */}
           {errorMsg && (
             <div className="mb-4 flex items-center gap-2.5 text-xs font-medium text-rose-800 bg-rose-50 border border-rose-200 p-3.5 rounded-2xl">
@@ -313,35 +377,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
 
           {/* ADD RECEPTIONIST / DOCTOR FORM */}
           {(activeTab === 'add-receptionist' || activeTab === 'add-doctor') && (
-            <div className="space-y-5">
-              <div className="flex items-center justify-between pb-3 border-b border-stone-200/80">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-2xl text-white shadow-2xs ${
-                    activeTab === 'add-doctor' ? 'bg-indigo-600' : 'bg-blue-600'
-                  }`}>
-                    {activeTab === 'add-doctor' ? <Stethoscope className="w-5 h-5" /> : <Receipt className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-stone-900">
-                      {activeTab === 'add-doctor' ? 'New Doctor Account' : 'New Receptionist Account'}
-                    </h4>
-                    <p className="text-xs text-stone-500">
-                      {activeTab === 'add-doctor'
-                        ? 'Set up credentials for clinical practitioner.'
-                        : 'Set up credentials for front desk registration and billing desk.'}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handleTabSwitch('directory')}
-                  className="text-xs text-stone-500 hover:text-stone-800 font-medium px-2.5 py-1 rounded-lg hover:bg-stone-100 transition-colors cursor-pointer"
-                >
-                  View Directory
-                </button>
-              </div>
-
+            <div className="space-y-4">
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Name */}
@@ -411,8 +447,9 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                   {/* Station Password */}
                   <div className="sm:col-span-2 bg-stone-50 rounded-2xl border border-stone-200/90 p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <label className="block text-xs font-bold text-stone-900">
-                        Station Password *
+                      <label className="block text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                        <Lock className="w-3.5 h-3.5 text-stone-600" />
+                        <span>Station Password *</span>
                       </label>
                       <button
                         type="button"
@@ -430,7 +467,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                         value={pin}
                         onChange={e => setPin(e.target.value)}
                         placeholder="Enter station password"
-                        className="w-full pl-3.5 pr-10 py-2.5 text-sm bg-white border border-stone-300 rounded-xl focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden text-stone-900"
+                        className="w-full pl-3.5 pr-10 py-2.5 text-sm bg-white border border-stone-300 rounded-xl focus:border-stone-900 focus:ring-1 focus:ring-stone-900 focus:outline-hidden text-stone-900 font-mono"
                         required
                       />
                       <button
@@ -623,7 +660,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                           {((role === 'admin' && !isAdmin) || (role === 'doctor' && isRec)) && (
                             <button
                               type="button"
-                              onClick={() => handleDelete(u.id, u.name)}
+                              onClick={() => setConfirmDeleteUser({ id: u.id, name: u.name })}
                               className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
                               title={`Remove ${u.name}`}
                             >
@@ -638,23 +675,23 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
               </div>
             </div>
           )}
-
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3.5 bg-stone-50/90 border-t border-stone-200 flex items-center justify-between text-xs text-stone-500 shrink-0">
-          <span>Administrator manages Doctors & Receptionists • Doctor manages Receptionists</span>
+        <div className="px-5 sm:px-6 py-3.5 bg-stone-50 border-t border-stone-200 flex items-center justify-between text-xs text-stone-500 shrink-0">
+          <span className="hidden sm:inline">Administrator manages Doctors & Receptionists • Doctor manages Receptionists</span>
+          <span className="sm:hidden font-medium">Access Management</span>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 font-semibold text-stone-700 hover:text-stone-900 bg-white border border-stone-300 rounded-xl hover:bg-stone-100 transition-colors cursor-pointer shadow-2xs"
           >
             Close
           </button>
         </div>
-
       </div>
-    </div>,
-    document.body
+    </div>
   );
+
+  return createPortal(modalContent, document.body);
 };

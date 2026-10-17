@@ -18,7 +18,6 @@ import {
   X,
   Search
 } from 'lucide-react';
-import { StaffManagementModal } from '../settings/StaffManagementModal';
 
 interface HeaderProps {
   onToggleMobileMenu?: () => void;
@@ -40,13 +39,11 @@ export const Header: React.FC<HeaderProps> = ({
     settings, 
     syncStatus, 
     lastSyncTime, 
-    triggerCloudSync 
+    triggerCloudSync,
+    openStaffModal
   } = useClinic();
 
   const [roleMenuOpen, setRoleMenuOpen] = useState(false);
-  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
-  const [staffModalInitialRole, setStaffModalInitialRole] = useState<UserRole>('receptionist');
-  const [staffModalInitialAdding, setStaffModalInitialAdding] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleManualSync = async () => {
@@ -197,9 +194,7 @@ export const Header: React.FC<HeaderProps> = ({
                           type="button"
                           onClick={() => {
                             setRoleMenuOpen(false);
-                            setStaffModalInitialRole('receptionist');
-                            setStaffModalInitialAdding(true);
-                            setIsStaffModalOpen(true);
+                            openStaffModal('receptionist', true);
                           }}
                           className="w-full px-3 py-2 text-left text-xs font-semibold text-blue-900 bg-blue-50/70 hover:bg-blue-100 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
                         >
@@ -217,9 +212,7 @@ export const Header: React.FC<HeaderProps> = ({
                             type="button"
                             onClick={() => {
                               setRoleMenuOpen(false);
-                              setStaffModalInitialRole('doctor');
-                              setStaffModalInitialAdding(true);
-                              setIsStaffModalOpen(true);
+                              openStaffModal('doctor', true);
                             }}
                             className="w-full px-3 py-2 text-left text-xs font-semibold text-indigo-900 bg-indigo-50/70 hover:bg-indigo-100 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
                           >
@@ -237,8 +230,7 @@ export const Header: React.FC<HeaderProps> = ({
                           type="button"
                           onClick={() => {
                             setRoleMenuOpen(false);
-                            setStaffModalInitialAdding(false);
-                            setIsStaffModalOpen(true);
+                            openStaffModal(undefined, false);
                           }}
                           className="w-full px-3 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-100 rounded-xl flex items-center justify-between transition-colors cursor-pointer"
                         >
@@ -280,14 +272,6 @@ export const Header: React.FC<HeaderProps> = ({
 
         </div>
       </div>
-
-      {/* Staff Management & Role Creation Modal */}
-      <StaffManagementModal
-        isOpen={isStaffModalOpen}
-        onClose={() => setIsStaffModalOpen(false)}
-        initialRole={staffModalInitialRole}
-        initialAdding={staffModalInitialAdding}
-      />
     </header>
   );
 };

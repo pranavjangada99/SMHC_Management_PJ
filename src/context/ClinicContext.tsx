@@ -52,6 +52,13 @@ export interface ClinicContextType {
   logout: () => void;
   updateStaffPins: (pins: StaffPins) => void;
 
+  // Global Staff Management Modal
+  isStaffModalOpen: boolean;
+  staffModalInitialRole: UserRole;
+  staffModalInitialAdding: boolean;
+  openStaffModal: (initialRole?: UserRole, adding?: boolean) => void;
+  closeStaffModal: () => void;
+
   // Navigation
   activeTab: NavigationTab;
   setActiveTab: (tab: NavigationTab) => void;
@@ -130,6 +137,11 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [activePrescriptionToPrint, setActivePrescriptionToPrint] = useState<Prescription | null>(null);
   const [activeInvoiceToPrint, setActiveInvoiceToPrint] = useState<Invoice | null>(null);
   const [activeViewingPatientId, setActiveViewingPatientId] = useState<string | null>(null);
+
+  // Global Staff Modal State
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
+  const [staffModalInitialRole, setStaffModalInitialRole] = useState<UserRole>('receptionist');
+  const [staffModalInitialAdding, setStaffModalInitialAdding] = useState(false);
 
   // Entities State (filters any legacy test dummy IDs)
   const [settings, setSettings] = useState<ClinicSettings>(() => localStore.getSettings());
@@ -436,6 +448,16 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const closePatientDetails = () => {
     setActiveViewingPatientId(null);
+  };
+
+  const openStaffModal = (initialRole: UserRole = 'receptionist', adding: boolean = false) => {
+    setStaffModalInitialRole(initialRole);
+    setStaffModalInitialAdding(adding);
+    setIsStaffModalOpen(true);
+  };
+
+  const closeStaffModal = () => {
+    setIsStaffModalOpen(false);
   };
 
   // Patient Actions
@@ -878,6 +900,11 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         lockSession,
         logout,
         updateStaffPins,
+        isStaffModalOpen,
+        staffModalInitialRole,
+        staffModalInitialAdding,
+        openStaffModal,
+        closeStaffModal,
         activeTab,
         setActiveTab,
         selectedPatientForConsultation,
