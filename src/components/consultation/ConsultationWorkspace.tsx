@@ -266,7 +266,7 @@ export const ConsultationWorkspace: React.FC = () => {
               Homoeopathic Clinical Consultation
             </h2>
             <p className="text-xs text-slate-500">
-              Examining Doctor: <span className="font-semibold text-slate-700">{settings.doctorName}</span> · {settings.qualification}
+              Examining Doctor: <span className="font-semibold text-slate-700">{settings.doctorName || 'Doctor'}</span>{settings.qualification ? ` · ${settings.qualification}` : ''}
             </p>
           </div>
 

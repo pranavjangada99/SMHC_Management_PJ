@@ -84,7 +84,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
-              Welcome, {settings.doctorName}
+              Welcome, {settings.doctorName || 'Doctor'}
             </h2>
             <p className="text-xs sm:text-sm text-stone-500 mt-0.5">
               {settings.clinicName} · {todayAppointments.length} appointments scheduled today.
@@ -256,7 +256,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-stone-900">Today's Appointment Tokens</h3>
-                <p className="text-xs text-stone-500">Live OPD status tracker for {settings.doctorName}</p>
+                <p className="text-xs text-stone-500">Live OPD status tracker for {settings.doctorName || 'Doctor'}</p>
               </div>
               <button
                 onClick={() => setActiveTab('queue')}

@@ -99,7 +99,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {settings.clinicName}
               </h1>
               <div className="flex items-center gap-1.5 text-[11px] sm:text-xs text-slate-500 leading-tight truncate mt-0.5">
-                <span className="font-semibold text-slate-700 truncate">{settings.doctorName}</span>
+                {settings.doctorName && <span className="font-semibold text-slate-700 truncate">{settings.doctorName}</span>}
                 {settings.qualification && (
                   <span className="hidden sm:inline text-slate-400 truncate">
                     <span aria-hidden="true" className="mr-1 text-slate-300">·</span>

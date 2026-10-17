@@ -12,6 +12,17 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
+// Global CORS Middleware
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Staff-Role, X-Staff-Pin, X-Staff-Id, Accept, Origin, *');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  next();
+});
+
 // Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
@@ -305,7 +316,7 @@ app.get('/api/staff-users', (req, res) => {
       status: u.status || 'active',
       createdByRole: u.created_by_role || 'admin',
       createdAt: u.created_at,
-      pin: auth.role === 'admin' ? u.pin : (auth.role === 'doctor' && u.role === 'receptionist' ? u.pin : '••••••••')
+      pin: (auth.role === 'admin' || auth.role === 'doctor') ? u.pin : (u.role === 'receptionist' ? u.pin : '••••••••')
     }));
     res.json(users);
   } catch (err) {
@@ -323,12 +334,6 @@ app.post('/api/staff-users', (req, res) => {
     const { role, name, title, email, phone, pin, password } = req.body;
     if (!name || !role) {
       return res.status(400).json({ error: 'Name and role are required' });
-    }
-
-    if (auth.role === 'doctor' && role !== 'receptionist') {
-      return res.status(403).json({
-        error: 'Forbidden: Doctors can only add Receptionist users. Only Admin can create new Doctor accounts.'
-      });
     }
 
     const id = `staff-${role.slice(0, 3)}-${Date.now().toString(36)}`;
@@ -349,6 +354,23 @@ app.post('/api/staff-users', (req, res) => {
       auth.role,
       now
     );
+
+    // If a doctor account was created, also update staff_pins.doctor in clinic_settings if unset
+    if (role === 'doctor') {
+      try {
+        const settingsRow = sqlite.prepare('SELECT staff_pins FROM clinic_settings WHERE id = "active"').get() as { staff_pins?: string } | undefined;
+        let pins: Record<string, string> = { admin: 'DreamProject09' };
+        if (settingsRow?.staff_pins) {
+          try { pins = JSON.parse(settingsRow.staff_pins); } catch {}
+        }
+        if (!pins.doctor || pins.doctor.trim() === '') {
+          pins.doctor = userPassword;
+        }
+        sqlite.prepare('UPDATE clinic_settings SET doctor_name = ?, qualification = COALESCE(?, qualification), staff_pins = ?, updated_at = ? WHERE id = "active"').run(name, title || null, JSON.stringify(pins), now);
+      } catch {
+        // ignore
+      }
+    }
 
     res.status(201).json({
       id,
@@ -380,9 +402,6 @@ app.delete('/api/staff-users/:id', (req, res) => {
       return res.status(404).json({ error: 'Staff user not found' });
     }
 
-    if (auth.role === 'doctor' && targetUser.role !== 'receptionist') {
-      return res.status(403).json({ error: 'Forbidden: Doctors can only manage receptionist users' });
-    }
     if (auth.role === 'receptionist') {
       return res.status(403).json({ error: 'Forbidden: Receptionists cannot delete staff users' });
     }
@@ -527,7 +546,7 @@ app.post('/api/appointments', (req, res) => {
       body.status || 'scheduled',
       body.type || 'follow-up',
       body.chiefComplaint || body.chief_complaint || null,
-      body.assignedDoctor || body.assigned_doctor || 'Dr. Pranav J.',
+      body.assignedDoctor || body.assigned_doctor || 'Doctor',
       body.createdAt || new Date().toISOString()
     );
     const created = sqlite.prepare('SELECT * FROM appointments WHERE id = ?').get(id);
@@ -613,7 +632,7 @@ app.post('/api/consultations', (req, res) => {
       body.patientId || body.patient_id,
       body.appointmentId || body.appointment_id || null,
       body.date || new Date().toISOString(),
-      body.doctorName || body.doctor_name || 'Dr. Pranav J.',
+      body.doctorName || body.doctor_name || 'Doctor',
       vitals?.bp || null,
       vitals?.pulse || null,
       vitals?.temperature || null,
@@ -703,8 +722,8 @@ app.post('/api/prescriptions', (req, res) => {
       body.patientGender || body.patient_gender || null,
       body.date || new Date().toISOString().split('T')[0],
       body.generalAdvice || body.general_advice || null,
-      body.doctorSignature || body.doctor_signature || 'Dr. Pranav J.',
-      body.doctorRegistrationNumber || body.doctor_registration_number || 'HOM-MAH-84920',
+      body.doctorSignature || body.doctor_signature || 'Doctor',
+      body.doctorRegistrationNumber || body.doctor_registration_number || '',
       new Date().toISOString()
     );
 
@@ -1031,9 +1050,9 @@ app.post('/api/migrate-from-firestore', (req, res) => {
         'active',
         s.clinicName || 'HomoeoCare Health Centre',
         s.tagline || null,
-        s.doctorName || 'Dr. Pranav J.',
+        s.doctorName || '',
         s.qualification || null,
-        s.registrationNumber || 'HOM-MAH-84920',
+        s.registrationNumber || '',
         s.phone || null,
         s.email || null,
         s.address || null,

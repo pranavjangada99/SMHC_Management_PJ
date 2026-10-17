@@ -19,17 +19,18 @@ const STORAGE_KEYS = {
   INVOICES: 'homoeocare_invoices',
   ACTIVE_ROLE: 'homoeocare_active_role',
   IS_LOCKED: 'homoeocare_is_locked',
+  STAFF_USERS: 'homoeocare_staff_users',
 };
 
 export const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
   clinicName: 'HomoeoCare Health Centre',
   tagline: 'Holistic & Individualized Healing Clinic',
-  doctorName: 'Dr. Pranav J.',
-  qualification: 'B.H.M.S, M.D. (Hom.)',
-  registrationNumber: 'HOM-MAH-84920',
-  phone: '+91 98201 45890',
-  email: 'contact@homoeocareclinic.in',
-  address: 'Shop No. 4, Shanti Niketan Arcade, M.G. Road, Pune, Maharashtra 411001',
+  doctorName: '',
+  qualification: '',
+  registrationNumber: '',
+  phone: '',
+  email: '',
+  address: '',
   opdTimings: 'Mon-Sat: 10:00 AM - 1:30 PM & 5:30 PM - 9:00 PM | Sun: Closed',
   consultationFeeINR: 500,
   followupFeeINR: 300,
@@ -242,6 +243,18 @@ export const localStore = {
     sessionStorage.removeItem('homoeocare_auth_session');
     localStorage.removeItem('homoeocare_auth_session');
     localStorage.setItem(STORAGE_KEYS.IS_LOCKED, 'true');
+  },
+  getStaffUsers(): any[] {
+    const data = localStorage.getItem(STORAGE_KEYS.STAFF_USERS);
+    if (!data) return [];
+    try {
+      return JSON.parse(data);
+    } catch {
+      return [];
+    }
+  },
+  saveStaffUsers(users: any[]) {
+    localStorage.setItem(STORAGE_KEYS.STAFF_USERS, JSON.stringify(users));
   }
 };
 

@@ -57,7 +57,7 @@ export const AppointmentQueueView: React.FC<AppointmentQueueViewProps> = ({
           <div>
             <h2 className="text-xl font-bold text-stone-900 tracking-tight">Daily OPD Patient Queue</h2>
             <p className="text-xs text-stone-500 mt-0.5">
-              Live token queue management for {settings.doctorName}'s consultation desk.
+              Live token queue management for {settings.doctorName || 'Doctor'}'s consultation desk.
             </p>
           </div>
 

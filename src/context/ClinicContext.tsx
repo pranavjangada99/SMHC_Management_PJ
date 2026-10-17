@@ -126,7 +126,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   // Staff Role & PIN State
   const [role, setRole] = useState<UserRole>(() => (localStore.getActiveRole() as UserRole) || 'admin');
   const [isLocked, setIsLocked] = useState<boolean>(() => localStore.getIsLocked());
-  const [staffUsers, setStaffUsers] = useState<StaffUser[]>([]);
+  const [staffUsers, setStaffUsers] = useState<StaffUser[]>(() => localStore.getStaffUsers());
 
   // Navigation State
   const [activeTab, setActiveTab] = useState<NavigationTab>('dashboard');
@@ -168,6 +168,19 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing' | 'offline' | 'saved-local'>('saved-local');
   const [lastSyncTime, setLastSyncTime] = useState<string>(() => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
 
+  // Dynamic staff profiles based on registered users and active session
+  const registeredDoctor = staffUsers.find(u => u.role === 'doctor');
+  const registeredReceptionist = staffUsers.find(u => u.role === 'receptionist');
+  const activeSession = localStore.getAuthSession();
+
+  const currentDoctorName = (role === 'doctor' && activeSession?.name && activeSession.role === 'doctor')
+    ? activeSession.name
+    : (registeredDoctor?.name || settings.doctorName || 'Doctor');
+
+  const currentReceptionistName = (role === 'receptionist' && activeSession?.name && activeSession.role === 'receptionist')
+    ? activeSession.name
+    : (registeredReceptionist?.name || 'Front Desk');
+
   // Staff Profiles
   const staffProfiles: Record<UserRole, StaffProfile> = {
     admin: {
@@ -178,14 +191,14 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     },
     doctor: {
       role: 'doctor',
-      name: settings.doctorName || 'Doctor',
-      title: 'Homoeopathic Physician',
+      name: currentDoctorName,
+      title: registeredDoctor?.title || settings.qualification || 'Homoeopathic Physician',
       defaultPin: settings.staffPins?.doctor || '',
     },
     receptionist: {
       role: 'receptionist',
-      name: 'Front Desk',
-      title: 'Patient Desk Coordinator',
+      name: currentReceptionistName,
+      title: registeredReceptionist?.title || 'Patient Desk Coordinator',
       defaultPin: settings.staffPins?.receptionist || '',
     },
   };
@@ -228,6 +241,10 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   useEffect(() => {
     localStore.setIsLocked(isLocked);
   }, [isLocked]);
+
+  useEffect(() => {
+    localStore.saveStaffUsers(staffUsers);
+  }, [staffUsers]);
 
   // Load all records from Cloudflare D1 API
   const loadAllFromD1 = async () => {
@@ -286,6 +303,7 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
       const users = await clinicApi.getStaffUsers();
       if (Array.isArray(users)) {
         setStaffUsers(users);
+        localStore.saveStaffUsers(users);
       }
     } catch (err) {
       console.warn('Could not load staff users from API:', err);
@@ -293,14 +311,82 @@ export const ClinicProvider: React.FC<{ children: ReactNode }> = ({ children }) 
   };
 
   const createStaffUser = async (staff: { role: UserRole; name: string; title?: string; email?: string; phone?: string; pin?: string }): Promise<StaffUser> => {
-    const created = await clinicApi.createStaffUser(staff);
-    setStaffUsers(prev => [...prev, created]);
+    let created: StaffUser;
+    try {
+      created = await clinicApi.createStaffUser(staff);
+    } catch (apiErr) {
+      console.warn('API error creating staff, falling back to local creation:', apiErr);
+      created = {
+        id: `staff-${staff.role.slice(0, 3)}-${Date.now().toString(36)}`,
+        role: staff.role,
+        name: staff.name,
+        title: staff.title || (staff.role === 'doctor' ? 'Associate Homoeopathic Physician' : 'Front Desk Coordinator'),
+        email: staff.email,
+        phone: staff.phone,
+        pin: staff.pin,
+        status: 'active',
+        createdByRole: role,
+        createdAt: new Date().toISOString()
+      };
+    }
+
+    setStaffUsers(prev => {
+      const updated = [...prev.filter(u => u.id !== created.id), created];
+      localStore.saveStaffUsers(updated);
+      return updated;
+    });
+
+    // If doctor account created, update settings.doctorName, qualification, and staffPins
+    if (staff.role === 'doctor') {
+      const updatedPins = {
+        ...settings.staffPins,
+        doctor: (!settings.staffPins?.doctor || settings.staffPins.doctor.trim() === '') ? (staff.pin || '') : settings.staffPins.doctor
+      };
+      const updatedSettings: ClinicSettings = {
+        ...settings,
+        doctorName: staff.name,
+        qualification: staff.title || settings.qualification,
+        staffPins: updatedPins,
+      };
+      setSettings(updatedSettings);
+      localStore.saveSettings(updatedSettings);
+
+      const session = localStore.getAuthSession();
+      if (session && session.role === 'doctor') {
+        localStore.setAuthSession({ ...session, name: staff.name, title: staff.title || session.title });
+      }
+
+      clinicApi.updateSettings({
+        doctorName: staff.name,
+        qualification: staff.title || settings.qualification,
+        staffPins: updatedPins,
+      }).catch(() => {});
+    }
+
     return created;
   };
 
   const deleteStaffUser = async (id: string): Promise<void> => {
-    await clinicApi.deleteStaffUser(id);
-    setStaffUsers(prev => prev.filter(u => u.id !== id));
+    const userToDelete = staffUsers.find(u => u.id === id);
+    try {
+      await clinicApi.deleteStaffUser(id);
+    } catch (apiErr) {
+      console.warn('API error deleting staff, proceeding with local deletion:', apiErr);
+    }
+    const remainingDoctors = staffUsers.filter(u => u.id !== id && u.role === 'doctor');
+    setStaffUsers(prev => {
+      const updated = prev.filter(u => u.id !== id);
+      localStore.saveStaffUsers(updated);
+      return updated;
+    });
+
+    if (userToDelete && userToDelete.role === 'doctor' && settings.doctorName === userToDelete.name) {
+      const nextDoctorName = remainingDoctors.length > 0 ? remainingDoctors[0].name : '';
+      const updatedSettings = { ...settings, doctorName: nextDoctorName };
+      setSettings(updatedSettings);
+      localStore.saveSettings(updatedSettings);
+      clinicApi.updateSettings({ doctorName: nextDoctorName }).catch(() => {});
+    }
   };
 
   // Initial Load from Cloudflare D1 on mount

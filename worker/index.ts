@@ -43,7 +43,7 @@ function corsHeaders(request: Request): HeadersInit {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Staff-Role, X-Staff-Pin',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Staff-Role, X-Staff-Pin, X-Staff-Id, Accept, Origin, *',
     'Access-Control-Max-Age': '86400',
   };
 }
@@ -318,7 +318,7 @@ export default {
             status: u.status || 'active',
             createdByRole: u.created_by_role || 'admin',
             createdAt: u.created_at,
-            pin: auth.role === 'admin' ? u.pin : (auth.role === 'doctor' && u.role === 'receptionist' ? u.pin : '••••••••')
+            pin: (auth.role === 'admin' || auth.role === 'doctor') ? u.pin : (u.role === 'receptionist' ? u.pin : '••••••••')
           }));
           return jsonResponse(users, 200, request);
         }
@@ -342,12 +342,6 @@ export default {
             return jsonResponse({ error: 'Name and role are required' }, 400, request);
           }
 
-          if (auth.role === 'doctor' && body.role !== 'receptionist') {
-            return jsonResponse({
-              error: 'Forbidden: Doctors can only add Receptionist users. Only Admin can create new Doctor accounts.'
-            }, 403, request);
-          }
-
           const id = `staff-${body.role.slice(0, 3)}-${Date.now().toString(36)}`;
           const defaultPin = body.pin || body.password || (body.role === 'doctor' ? 'Doc#2026' : 'Front#2026');
           const now = new Date().toISOString();
@@ -366,6 +360,25 @@ export default {
             auth.role,
             now
           ).run();
+
+          // If a doctor account was created, also update doctor_name and staff_pins in clinic_settings
+          if (body.role === 'doctor') {
+            try {
+              const settingsRow = await env.DB.prepare('SELECT staff_pins FROM clinic_settings WHERE id = "active"').first<{ staff_pins?: string }>();
+              let pins: Record<string, string> = { admin: 'DreamProject09' };
+              if (settingsRow?.staff_pins) {
+                try { pins = JSON.parse(settingsRow.staff_pins); } catch {}
+              }
+              if (!pins.doctor || pins.doctor.trim() === '') {
+                pins.doctor = defaultPin;
+              }
+              await env.DB.prepare(
+                'UPDATE clinic_settings SET doctor_name = ?, qualification = COALESCE(?, qualification), staff_pins = ?, updated_at = ? WHERE id = "active"'
+              ).bind(body.name, body.title || null, JSON.stringify(pins), now).run();
+            } catch {
+              // ignore
+            }
+          }
 
           return jsonResponse({
             id,
@@ -395,9 +408,6 @@ export default {
             return jsonResponse({ error: 'Staff user not found' }, 404, request);
           }
 
-          if (auth.role === 'doctor' && targetUser.role !== 'receptionist') {
-            return jsonResponse({ error: 'Forbidden: Doctors can only manage receptionist users' }, 403, request);
-          }
           if (auth.role === 'receptionist') {
             return jsonResponse({ error: 'Forbidden: Receptionists cannot delete staff users' }, 403, request);
           }
@@ -539,7 +549,7 @@ export default {
             body.status || 'scheduled',
             body.type || 'follow-up',
             body.chiefComplaint || body.chief_complaint || null,
-            body.assignedDoctor || body.assigned_doctor || 'Dr. Pranav J.',
+            body.assignedDoctor || body.assigned_doctor || 'Doctor',
             body.createdAt || new Date().toISOString()
           ).run();
 
@@ -597,7 +607,7 @@ export default {
             body.patientId || body.patient_id,
             body.appointmentId || body.appointment_id || null,
             body.date || new Date().toISOString(),
-            body.doctorName || body.doctor_name || 'Dr. Pranav J.',
+            body.doctorName || body.doctor_name || 'Doctor',
             vitals?.bp || null,
             vitals?.pulse || null,
             vitals?.temperature || null,
@@ -671,8 +681,8 @@ export default {
             body.patientGender || body.patient_gender || null,
             body.date || new Date().toISOString().split('T')[0],
             body.generalAdvice || body.general_advice || null,
-            body.doctorSignature || body.doctor_signature || 'Dr. Pranav J.',
-            body.doctorRegistrationNumber || body.doctor_registration_number || 'HOM-MAH-84920',
+            body.doctorSignature || body.doctor_signature || 'Doctor',
+            body.doctorRegistrationNumber || body.doctor_registration_number || '',
             new Date().toISOString()
           ).run();
 
@@ -973,9 +983,9 @@ export default {
             'active',
             s.clinicName || 'HomoeoCare Health Centre',
             s.tagline || null,
-            s.doctorName || 'Dr. Pranav J.',
+            s.doctorName || '',
             s.qualification || null,
-            s.registrationNumber || 'HOM-MAH-84920',
+            s.registrationNumber || '',
             s.phone || null,
             s.email || null,
             s.address || null,

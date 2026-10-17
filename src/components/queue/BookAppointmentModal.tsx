@@ -94,7 +94,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-850">Issue OPD Queue Token</h3>
-              <p className="text-xs text-slate-500">{settings.doctorName}'s Homoeopathic Consultation Desk</p>
+              <p className="text-xs text-slate-500">{settings.doctorName ? `${settings.doctorName}'s ` : ''}Homoeopathic Consultation Desk</p>
             </div>
           </div>
 
@@ -114,7 +114,7 @@ export const BookAppointmentModal: React.FC<BookAppointmentModalProps> = ({
           </div>
           <div className="text-right text-xs text-stone-700">
             <span>Date: <strong>{appointmentDate}</strong></span>
-            <span className="block text-[11px] text-stone-500 font-medium">Doctor: {settings.doctorName}</span>
+            <span className="block text-[11px] text-stone-500 font-medium">Doctor: {settings.doctorName || 'Consultant Doctor'}</span>
           </div>
         </div>
 

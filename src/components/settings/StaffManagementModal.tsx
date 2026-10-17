@@ -151,19 +151,14 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
 
     const targetRole: UserRole = activeTab === 'add-doctor' ? 'doctor' : 'receptionist';
 
-    // Role hierarchy authorization check
-    if (targetRole === 'doctor' && role !== 'admin') {
-      setErrorMsg('Only Clinic Admin can create Doctor accounts.');
-      return;
-    }
-
-    if (role === 'doctor' && targetRole !== 'receptionist') {
-      setErrorMsg('Doctors can only create Receptionist accounts.');
-      return;
-    }
-
+    // Role authorization check
     if (role === 'receptionist') {
-      setErrorMsg('Receptionists do not have permission to manage staff.');
+      setErrorMsg('Receptionists do not have permission to manage staff accounts.');
+      return;
+    }
+
+    if (targetRole === 'doctor' && role !== 'admin') {
+      setErrorMsg('Only Clinic Administrator can create Doctor accounts. Doctors can only add Receptionists.');
       return;
     }
 
@@ -485,22 +480,6 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
                   </div>
                 </div>
 
-                {/* Role Permissions Scope Notice */}
-                <div className="p-3.5 bg-blue-50/60 border border-blue-100 rounded-2xl text-xs text-blue-950 space-y-1">
-                  <span className="font-bold text-blue-900 block">
-                    {activeTab === 'add-doctor' ? 'Doctor Access Scope:' : 'Receptionist Access Scope:'}
-                  </span>
-                  {activeTab === 'add-doctor' ? (
-                    <p className="text-blue-900/80">
-                      Access to consultations, patient clinical records, prescriptions, repertory, and queue management.
-                    </p>
-                  ) : (
-                    <p className="text-blue-900/80">
-                      Access to patient registration, token queue, prescription lookup, and today's billing counter. Clinical notes and revenue intelligence remain restricted.
-                    </p>
-                  )}
-                </div>
-
                 {/* Form Buttons */}
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-200">
                   <button
@@ -679,8 +658,7 @@ export const StaffManagementModal: React.FC<StaffManagementModalProps> = ({
 
         {/* Footer */}
         <div className="px-5 sm:px-6 py-3.5 bg-stone-50 border-t border-stone-200 flex items-center justify-between text-xs text-stone-500 shrink-0">
-          <span className="hidden sm:inline">Administrator manages Doctors & Receptionists • Doctor manages Receptionists</span>
-          <span className="sm:hidden font-medium">Access Management</span>
+          <span className="text-xs text-stone-500 font-medium">Staff Directory & Station Access</span>
           <button
             type="button"
             onClick={handleClose}

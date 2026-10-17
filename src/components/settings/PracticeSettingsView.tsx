@@ -391,7 +391,7 @@ export const PracticeSettingsView: React.FC = () => {
                   value={doctorName}
                   onChange={e => setDoctorName(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-stone-200 rounded-xl focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 focus:outline-hidden"
-                  placeholder="e.g. Dr. Pranav J."
+                  placeholder="e.g. Dr. Full Name"
                   required
                 />
               </div>
@@ -937,18 +937,18 @@ export const PracticeSettingsView: React.FC = () => {
       {/* SECTION 5: STAFF PINS & ROLES */}
       {activeSection === 'staff' && (
         <div className="space-y-6">
-          {/* User Management & Hierarchy Panel */}
+          {/* Staff Accounts & Directory Panel */}
           <div className="bg-white rounded-2xl border border-stone-200/80 p-6 shadow-xs">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-4 border-b border-stone-200/80">
               <div>
-                <h3 className="text-base font-bold text-stone-900">Staff Accounts & Role Hierarchy</h3>
+                <h3 className="text-base font-bold text-stone-900">Staff Accounts & Access</h3>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Hierarchy Rule: <span className="font-semibold text-indigo-700">Admin creates Doctors</span> • <span className="font-semibold text-blue-700">Doctor adds Receptionists</span>
+                  Manage login credentials and team directory for clinic stations.
                 </p>
               </div>
 
               <div className="flex items-center gap-2">
-                {role === 'admin' && (
+                {(role === 'admin' || role === 'doctor') && (
                   <button
                     type="button"
                     onClick={() => openStaffModal('doctor', true)}
@@ -1025,7 +1025,7 @@ export const PracticeSettingsView: React.FC = () => {
 
             {role === 'doctor' && (
               <div className="mt-3 p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-xs text-blue-900">
-                Notice: As Doctor, you can add Receptionist accounts for your front desk. Doctor accounts are configured by the Clinic Administrator.
+                Notice: As Doctor, you can add and manage both Doctor and Receptionist accounts for your clinic team.
               </div>
             )}
           </div>
@@ -1155,7 +1155,7 @@ export const PracticeSettingsView: React.FC = () => {
                   value={upiId}
                   onChange={e => setUpiId(e.target.value)}
                   className="w-full px-3 py-2 text-xs font-mono border border-stone-200 rounded-xl focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 focus:outline-hidden"
-                  placeholder="e.g. pranav.homoeo@okaxis"
+                  placeholder="e.g. clinic.doctor@okaxis"
                   required
                 />
               </div>
@@ -1167,7 +1167,7 @@ export const PracticeSettingsView: React.FC = () => {
                   value={upiPayeeName}
                   onChange={e => setUpiPayeeName(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-stone-200 rounded-xl focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 focus:outline-hidden"
-                  placeholder="e.g. Dr. Pranav Homoeo Clinic"
+                  placeholder="e.g. HomoeoCare Health Centre"
                   required
                 />
               </div>
